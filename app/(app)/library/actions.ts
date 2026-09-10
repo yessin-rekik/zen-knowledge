@@ -15,12 +15,24 @@ export async function createDocument(formData: FormData) {
   const service = formData.get("service") as string;
   const visibilityRoles = formData.getAll("visibility_roles") as string[];
   const dateRevision = formData.get("date_revision") as string;
+  const file = formData.get("file") as File | null;
 
   if (!title || visibilityRoles.length === 0) {
     throw new Error("Titre et rôles de visibilité requis.");
   }
+  if (!file || file.size === 0) {
+    throw new Error("Fichier requis.");
+  }
 
-  const { error } = await supabaseAdmin.from("documents").insert({
+  const filePath = `${companyId}/${Date.now()}-${file.name}`;
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from("documents")
+    .upload(filePath, file);
+
+  if (uploadError) throw new Error(uploadError.message);
+
+  const { error: insertError } = await supabaseAdmin.from("documents").insert({
     company_id: companyId,
     service,
     owner_id: userId,
@@ -28,9 +40,10 @@ export async function createDocument(formData: FormData) {
     visibility_roles: visibilityRoles,
     status: "draft",
     date_revision: dateRevision || null,
+    file_path: filePath,
   });
 
-  if (error) throw new Error(error.message);
+  if (insertError) throw new Error(insertError.message);
 
   revalidatePath("/library");
 }

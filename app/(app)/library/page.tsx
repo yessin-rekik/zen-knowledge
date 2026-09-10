@@ -37,6 +37,13 @@ export default async function LibraryPage() {
             </label>
           ))}
         </div>
+	<input
+  		type="file"
+  		name="file"
+  		accept=".pdf"
+  		className="w-full rounded border px-3 py-2"
+  		required
+	/>
         <input
           type="date"
           name="date_revision"
