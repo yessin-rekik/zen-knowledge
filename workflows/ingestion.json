@@ -1,0 +1,80 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "ingestion-trigger",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2.1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "75cfc692-321e-4a9b-8579-981a407dbbeb",
+      "name": "Webhook",
+      "webhookId": "16ab1898-a459-4d33-81b0-8d976f1e4b06"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://host.docker.internal:3000/api/ingest",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-internal-secret",
+              "value": "6b68b2525c5ba8ab4d983f2399aadcca399220569b725fb5e89cef05ad2c6ac5"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "documentId",
+              "value": "={{ $json.body.documentId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "817036dc-c776-4216-8d5c-2414f0801b4e",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "95fdb3a5-a693-410d-b392-f6c4fedd6c55",
+  "meta": {
+    "instanceId": "c49f1af85c6be36ce378625bb34c21b5f78e1a1f160a42167b6fcb5f5550b218"
+  },
+  "nodeGroups": [],
+  "id": "OZjVzEo8i0t37JSs",
+  "tags": []
+}

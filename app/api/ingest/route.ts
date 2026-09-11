@@ -4,9 +4,21 @@ import { supabaseAdmin } from "@/lib/db";
 import { extractTextFromDocument } from "@/lib/extraction";
 
 export async function POST(req: NextRequest) {
-  const session = await auth();
-  if (!session?.user) {
-    return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+  const internalSecret = req.headers.get("x-internal-secret");
+  const isInternalCall = internalSecret === process.env.INTERNAL_WEBHOOK_SECRET;
+
+  let companyId: string;
+
+  if (isInternalCall) {
+    // Appel interne (n8n) : pas de session, on fait confiance au secret partagé.
+    // company_id sera vérifié via le document lui-même plus bas.
+    companyId = "";
+  } else {
+    const session = await auth();
+    if (!session?.user) {
+      return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
+    }
+    companyId = (session.user as any).companyId;
   }
 
   const { documentId } = await req.json();
@@ -14,7 +26,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "documentId requis." }, { status: 400 });
   }
 
-  const companyId = (session.user as any).companyId;
+  //let companyId = (session.user as any).companyId;
 
   const { data: document, error: fetchError } = await supabaseAdmin
     .from("documents")
@@ -28,7 +40,7 @@ export async function POST(req: NextRequest) {
       { status: 404 },
     );
   }
-  if (document.company_id !== companyId) {
+  if (!isInternalCall && document.company_id !== companyId) {
     return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
   }
   if (!document.file_path) {
