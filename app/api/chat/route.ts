@@ -58,10 +58,11 @@ export async function POST(req: NextRequest) {
   await supabaseAdmin.from("query_logs").insert({
     user_id: userId,
     latency_ms: latencyMs,
-    model: "llama-3.3-70b-versatile",
+    model: "openai/gpt-oss-20b",
     tokens_in: result.tokensIn,
     tokens_out: result.tokensOut,
     retrieved_doc_ids: [...new Set(result.usedChunks.map((c) => c.documentId))],
+    message_id: assistantMessage.id,
   });
 
   return NextResponse.json({
