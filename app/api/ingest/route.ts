@@ -18,27 +18,39 @@ export async function POST(req: NextRequest) {
 
   const { data: document, error: fetchError } = await supabaseAdmin
     .from("documents")
-    .select("id, company_id, file_path")
+    .select("id, company_id, file_path, version")
     .eq("id", documentId)
     .single();
 
   if (fetchError || !document) {
-    return NextResponse.json({ error: "Document introuvable." }, { status: 404 });
+    return NextResponse.json(
+      { error: "Document introuvable." },
+      { status: 404 },
+    );
   }
   if (document.company_id !== companyId) {
     return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
   }
   if (!document.file_path) {
-    return NextResponse.json({ error: "Aucun fichier associé." }, { status: 400 });
+    return NextResponse.json(
+      { error: "Aucun fichier associé." },
+      { status: 400 },
+    );
   }
 
-   try {
+  try {
     const { text, status } = await extractTextFromDocument(document.file_path);
 
     await supabaseAdmin
       .from("documents")
       .update({ extraction_status: status })
       .eq("id", documentId);
+
+    await supabaseAdmin
+      .from("document_versions")
+      .update({ extraction_status: status })
+      .eq("document_id", documentId)
+      .eq("version", document.version);
 
     if (status === "extraction_failed") {
       return NextResponse.json({ status, textLength: 0 });
@@ -72,12 +84,22 @@ export async function POST(req: NextRequest) {
 
     if (chunkError) throw new Error(chunkError.message);
 
-    return NextResponse.json({ status, textLength: text.length, chunkCount: chunks.length });
+    return NextResponse.json({
+      status,
+      textLength: text.length,
+      chunkCount: chunks.length,
+    });
   } catch (err: any) {
     await supabaseAdmin
       .from("documents")
       .update({ extraction_status: "extraction_failed" })
       .eq("id", documentId);
+
+    await supabaseAdmin
+      .from("document_versions")
+      .update({ extraction_status: "extraction_failed" })
+      .eq("document_id", documentId)
+      .eq("version", document.version);
 
     return NextResponse.json({ error: err.message }, { status: 500 });
   }

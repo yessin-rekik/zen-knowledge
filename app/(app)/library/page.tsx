@@ -4,6 +4,8 @@ import { createDocument } from "./actions";
 import { ExtractButton } from "./extract-button";
 import { publishDocument } from "./actions";
 import { deleteDocument } from "./actions";
+import { reuploadDocument } from "./actions";
+import { VersionHistory } from "./version-history";
 
 export default async function LibraryPage() {
   const session = await auth();
@@ -73,6 +75,7 @@ export default async function LibraryPage() {
                 {doc.extraction_status &&
                   ` — extraction: ${doc.extraction_status}`}
               </p>
+              <VersionHistory documentId={doc.id} />
             </div>
             <div className="flex gap-2 items-center">
               <ExtractButton documentId={doc.id} />
@@ -87,14 +90,35 @@ export default async function LibraryPage() {
                 </form>
               )}
             </div>
-              <form action={deleteDocument.bind(null, doc.id)}>
-                <button
-                  type="submit"
-                  className="rounded bg-red-600 px-3 py-1 text-sm text-white"
-                >
-                  Supprimer
-                </button>
-              </form>
+            <form
+              action={async (formData: FormData) => {
+                "use server";
+                await reuploadDocument(doc.id, formData);
+              }}
+              className="flex items-center gap-1"
+            >
+              <input
+                type="file"
+                name="file"
+                accept=".pdf"
+                className="text-xs"
+                required
+              />
+              <button
+                type="submit"
+                className="rounded bg-blue-600 px-2 py-1 text-xs text-white"
+              >
+                Nouvelle version
+              </button>
+            </form>
+            <form action={deleteDocument.bind(null, doc.id)}>
+              <button
+                type="submit"
+                className="rounded bg-red-600 px-3 py-1 text-sm text-white"
+              >
+                Supprimer
+              </button>
+            </form>
           </li>
         ))}
       </ul>

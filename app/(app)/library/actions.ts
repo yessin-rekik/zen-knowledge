@@ -32,18 +32,29 @@ export async function createDocument(formData: FormData) {
 
   if (uploadError) throw new Error(uploadError.message);
 
-  const { error: insertError } = await supabaseAdmin.from("documents").insert({
-    company_id: companyId,
-    service,
-    owner_id: userId,
-    title,
-    visibility_roles: visibilityRoles,
-    status: "draft",
-    date_revision: dateRevision || null,
-    file_path: filePath,
-  });
+  const { data: newDoc, error: insertError } = await supabaseAdmin
+    .from("documents")
+    .insert({
+      company_id: companyId,
+      service,
+      owner_id: userId,
+      title,
+      visibility_roles: visibilityRoles,
+      status: "draft",
+      date_revision: dateRevision || null,
+      file_path: filePath,
+    })
+    .select("id")
+    .single();
 
   if (insertError) throw new Error(insertError.message);
+
+  await supabaseAdmin.from("document_versions").insert({
+    document_id: newDoc.id,
+    version: 1,
+    file_path: filePath,
+    extraction_status: "pending",
+  });
 
   revalidatePath("/library");
 }
@@ -91,7 +102,6 @@ export async function deleteDocument(documentId: string) {
   if (fetchError || !document) throw new Error("Document introuvable.");
   if (document.company_id !== companyId) throw new Error("Accès refusé.");
 
-  // Soft delete : on désactive les chunks, on marque le document, mais on ne supprime rien
   await supabaseAdmin
     .from("document_chunks")
     .update({ is_active: false })
@@ -101,6 +111,61 @@ export async function deleteDocument(documentId: string) {
     .from("documents")
     .update({ status: "archived" })
     .eq("id", documentId);
+
+  revalidatePath("/library");
+}
+
+export async function reuploadDocument(documentId: string, formData: FormData) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Non authentifié.");
+
+  const companyId = (session.user as any).companyId;
+  const file = formData.get("file") as File | null;
+
+  if (!file || file.size === 0) throw new Error("Fichier requis.");
+
+  const { data: document, error: fetchError } = await supabaseAdmin
+    .from("documents")
+    .select("id, company_id, version")
+    .eq("id", documentId)
+    .single();
+
+  if (fetchError || !document) throw new Error("Document introuvable.");
+  if (document.company_id !== companyId) throw new Error("Accès refusé.");
+
+  const newVersion = document.version + 1;
+  const filePath = `${companyId}/${Date.now()}-${file.name}`;
+
+  const { error: uploadError } = await supabaseAdmin.storage
+    .from("documents")
+    .upload(filePath, file);
+
+  if (uploadError) throw new Error(uploadError.message);
+
+  // Désactive les chunks de l'ancienne version — historique conservé, pas supprimé
+  await supabaseAdmin
+    .from("document_chunks")
+    .update({ is_active: false })
+    .eq("document_id", documentId);
+
+  const { error: updateError } = await supabaseAdmin
+    .from("documents")
+    .update({
+      version: newVersion,
+      file_path: filePath,
+      status: "draft",
+      extraction_status: "pending",
+    })
+    .eq("id", documentId);
+
+  if (updateError) throw new Error(updateError.message);
+
+  await supabaseAdmin.from("document_versions").insert({
+    document_id: documentId,
+    version: newVersion,
+    file_path: filePath,
+    extraction_status: "pending",
+  });
 
   revalidatePath("/library");
 }

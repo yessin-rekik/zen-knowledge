@@ -13,6 +13,7 @@ export async function GET(
 
   const { id } = await params;
   const companyId = (session.user as any).companyId;
+  const versionId = req.nextUrl.searchParams.get("versionId");
 
   const { data: document, error } = await supabaseAdmin
     .from("documents")
@@ -26,13 +27,29 @@ export async function GET(
   if (document.company_id !== companyId) {
     return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
   }
-  if (!document.file_path) {
+
+  let filePath = document.file_path;
+
+  if (versionId) {
+    const { data: version, error: versionError } = await supabaseAdmin
+      .from("document_versions")
+      .select("file_path, document_id")
+      .eq("id", versionId)
+      .single();
+
+    if (versionError || !version || version.document_id !== id) {
+      return NextResponse.json({ error: "Version introuvable." }, { status: 404 });
+    }
+    filePath = version.file_path;
+  }
+
+  if (!filePath) {
     return NextResponse.json({ error: "Aucun fichier associé." }, { status: 404 });
   }
 
   const { data: signedUrl, error: urlError } = await supabaseAdmin.storage
     .from("documents")
-    .createSignedUrl(document.file_path, 60);
+    .createSignedUrl(filePath, 60);
 
   if (urlError) {
     return NextResponse.json({ error: urlError.message }, { status: 500 });
