@@ -34,6 +34,18 @@ const handleFeedback = async (index: number, feedback: "helpful" | "inaccurate")
   );
 };
 
+const openDocument = async (documentId: string) => {
+  const res = await fetch(`/api/documents/${documentId}/url`);
+  const data = await res.json();
+
+  if (!res.ok) {
+    alert(`Erreur: ${data.error}`);
+    return;
+  }
+
+  window.open(data.url, "_blank");
+};
+
   const handleSend = async () => {
     if (!input.trim()) return;
 
@@ -72,14 +84,18 @@ const handleFeedback = async (index: number, feedback: "helpful" | "inaccurate")
           <div key={i} className={msg.role === "user" ? "text-right" : "text-left"}>
             <p className="inline-block rounded px-3 py-2 bg-gray-100 max-w-md">{msg.content}</p>
             {msg.sources && msg.sources.length > 0 && (
-              <div className="mt-1 text-xs text-gray-500 space-y-1">
-                {msg.sources.map((s, j) => (
-                  <p key={j}>
-                    [Source {j + 1}] doc {s.documentId.slice(0, 8)}... — {s.excerpt.slice(0, 80)}...
-                  </p>
-                ))}
-              </div>
-            )}
+  <div className="mt-1 text-xs text-gray-500 space-y-1">
+    {msg.sources.map((s, j) => (
+      <button
+        key={j}
+        onClick={() => openDocument(s.documentId)}
+        className="block text-left underline hover:text-blue-600"
+      >
+        [Source {j + 1}] {s.excerpt.slice(0, 80)}...
+      </button>
+    ))}
+  </div>
+)}
             {msg.role === "assistant" && msg.messageId && (
   <div className="mt-1 flex gap-2 text-sm">
     <button
