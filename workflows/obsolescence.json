@@ -1,0 +1,73 @@
+{
+  "name": "My workflow 2",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 6
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "id": "28095812-3ae9-41f2-85ca-e7bd5db2a356",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "url": "http://host.docker.internal:3000/api/cron",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer 37ca50270882f019f02d08256871ecb635f86db05c85542e72e085c9dc4e96cb"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "id": "70c063a6-be15-4a65-993f-37957626c574",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "afa4e2fd-3966-4782-875e-a2c107727b5f",
+  "meta": {
+    "instanceId": "c49f1af85c6be36ce378625bb34c21b5f78e1a1f160a42167b6fcb5f5550b218"
+  },
+  "nodeGroups": [],
+  "id": "6WT3qzYbWJHG8YzF",
+  "tags": []
+}
