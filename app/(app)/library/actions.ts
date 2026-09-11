@@ -47,3 +47,31 @@ export async function createDocument(formData: FormData) {
 
   revalidatePath("/library");
 }
+
+export async function publishDocument(documentId: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Non authentifié.");
+
+  const companyId = (session.user as any).companyId;
+
+  const { data: document, error: fetchError } = await supabaseAdmin
+    .from("documents")
+    .select("id, company_id, extraction_status")
+    .eq("id", documentId)
+    .single();
+
+  if (fetchError || !document) throw new Error("Document introuvable.");
+  if (document.company_id !== companyId) throw new Error("Accès refusé.");
+  if (document.extraction_status !== "ok") {
+    throw new Error("Impossible de publier : extraction non réussie.");
+  }
+
+  const { error } = await supabaseAdmin
+    .from("documents")
+    .update({ status: "published" })
+    .eq("id", documentId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/library");
+}

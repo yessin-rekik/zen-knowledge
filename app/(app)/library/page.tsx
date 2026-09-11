@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db";
 import { createDocument } from "./actions";
 import { ExtractButton } from "./extract-button";
+import { publishDocument } from "./actions";
 
 export default async function LibraryPage() {
   const session = await auth();
@@ -58,15 +59,24 @@ export default async function LibraryPage() {
       <ul className="space-y-2">
         {documents?.map((doc) => (
           <li key={doc.id} className="border rounded p-3 flex justify-between items-center">
-            <div>
-              <p className="font-medium">{doc.title}</p>
-              <p className="text-sm text-gray-500">
-                {doc.service} — v{doc.version} — {doc.status} — rôles: {doc.visibility_roles.join(", ")}
-                {doc.extraction_status && ` — extraction: ${doc.extraction_status}`}
-              </p>
-            </div>
-            <ExtractButton documentId={doc.id} />
-          </li>
+  <div>
+    <p className="font-medium">{doc.title}</p>
+    <p className="text-sm text-gray-500">
+      {doc.service} — v{doc.version} — {doc.status} — rôles: {doc.visibility_roles.join(", ")}
+      {doc.extraction_status && ` — extraction: ${doc.extraction_status}`}
+    </p>
+  </div>
+  <div className="flex gap-2 items-center">
+    <ExtractButton documentId={doc.id} />
+    {doc.status === "draft" && doc.extraction_status === "ok" && (
+      <form action={publishDocument.bind(null, doc.id)}>
+        <button type="submit" className="rounded bg-green-600 px-3 py-1 text-sm text-white">
+          Publier
+        </button>
+      </form>
+    )}
+  </div>
+</li>
         ))}
       </ul>
     </div>
