@@ -45,6 +45,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { chunkText } = await import("@/lib/chunking");
+    const { embedText } = await import("@/lib/embeddings");
     const chunks = chunkText(text);
 
     const { data: docRow } = await supabaseAdmin
@@ -53,12 +54,17 @@ export async function POST(req: NextRequest) {
       .eq("id", documentId)
       .single();
 
-    const chunkRows = chunks.map((content) => ({
-      document_id: documentId,
-      version: docRow?.version ?? 1,
-      content,
-      is_active: true,
-    }));
+    const chunkRows = [];
+    for (const content of chunks) {
+      const embedding = await embedText(content);
+      chunkRows.push({
+        document_id: documentId,
+        version: docRow?.version ?? 1,
+        content,
+        embedding,
+        is_active: true,
+      });
+    }
 
     const { error: chunkError } = await supabaseAdmin
       .from("document_chunks")
