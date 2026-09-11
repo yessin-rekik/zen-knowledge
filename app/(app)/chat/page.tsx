@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { setFeedback } from "./actions";
 
 interface Source {
   chunkId: string;
@@ -12,6 +13,8 @@ interface Message {
   role: "user" | "assistant";
   content: string;
   sources?: Source[];
+  messageId?: string;
+  feedback?: "helpful" | "inaccurate";
 }
 
 export default function ChatPage() {
@@ -19,6 +22,17 @@ export default function ChatPage() {
   const [input, setInput] = useState("");
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+
+const handleFeedback = async (index: number, feedback: "helpful" | "inaccurate") => {
+  const msg = messages[index];
+  if (!msg.messageId) return;
+
+  await setFeedback(msg.messageId, feedback);
+  setMessages((prev) =>
+    prev.map((m, i) => (i === index ? { ...m, feedback } : m))
+  );
+};
 
   const handleSend = async () => {
     if (!input.trim()) return;
@@ -44,9 +58,9 @@ export default function ChatPage() {
 
     setConversationId(data.conversationId);
     setMessages((prev) => [
-      ...prev,
-      { role: "assistant", content: data.answer, sources: data.sources },
-    ]);
+  ...prev,
+  { role: "assistant", content: data.answer, sources: data.sources, messageId: data.messageId },
+]);
   };
 
   return (
@@ -66,6 +80,22 @@ export default function ChatPage() {
                 ))}
               </div>
             )}
+            {msg.role === "assistant" && msg.messageId && (
+  <div className="mt-1 flex gap-2 text-sm">
+    <button
+      onClick={() => handleFeedback(i, "helpful")}
+      className={msg.feedback === "helpful" ? "opacity-100" : "opacity-40"}
+    >
+      👍
+    </button>
+    <button
+      onClick={() => handleFeedback(i, "inaccurate")}
+      className={msg.feedback === "inaccurate" ? "opacity-100" : "opacity-40"}
+    >
+      👎
+    </button>
+  </div>
+)}
           </div>
         ))}
         {loading && <p className="text-gray-400">Réflexion...</p>}
