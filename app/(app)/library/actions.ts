@@ -75,3 +75,32 @@ export async function publishDocument(documentId: string) {
 
   revalidatePath("/library");
 }
+
+export async function deleteDocument(documentId: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Non authentifié.");
+
+  const companyId = (session.user as any).companyId;
+
+  const { data: document, error: fetchError } = await supabaseAdmin
+    .from("documents")
+    .select("id, company_id")
+    .eq("id", documentId)
+    .single();
+
+  if (fetchError || !document) throw new Error("Document introuvable.");
+  if (document.company_id !== companyId) throw new Error("Accès refusé.");
+
+  // Soft delete : on désactive les chunks, on marque le document, mais on ne supprime rien
+  await supabaseAdmin
+    .from("document_chunks")
+    .update({ is_active: false })
+    .eq("document_id", documentId);
+
+  await supabaseAdmin
+    .from("documents")
+    .update({ status: "archived" })
+    .eq("id", documentId);
+
+  revalidatePath("/library");
+}

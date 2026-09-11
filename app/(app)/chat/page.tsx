@@ -34,13 +34,15 @@ export default async function ChatPage({
         .eq("conversation_id", selectedConversationId)
         .order("created_at", { ascending: true });
 
-      const allChunkIds = (messages ?? []).flatMap((m) => m.retrieved_chunk_ids ?? []);
+      const allChunkIds = (messages ?? []).flatMap(
+        (m) => m.retrieved_chunk_ids ?? [],
+      );
 
       const { data: chunks } =
         allChunkIds.length > 0
           ? await supabaseAdmin
               .from("document_chunks")
-              .select("id, document_id, content")
+              .select("id, document_id, content, documents(status)")
               .in("id", allChunkIds)
           : { data: [] };
 
@@ -52,11 +54,12 @@ export default async function ChatPage({
         messageId: m.id,
         feedback: m.feedback,
         sources: (m.retrieved_chunk_ids ?? []).map((chunkId: string) => {
-          const chunk = chunkMap.get(chunkId);
+          const chunk: any = chunkMap.get(chunkId);
           return {
             chunkId,
             documentId: chunk?.document_id ?? "",
             excerpt: chunk?.content?.slice(0, 200) ?? "",
+            isDeleted: chunk?.documents?.status === "archived",
           };
         }),
       }));
@@ -74,7 +77,9 @@ export default async function ChatPage({
             key={conv.id}
             href={`/chat?c=${conv.id}`}
             className={`block text-sm truncate p-2 rounded ${
-              conv.id === selectedConversationId ? "bg-gray-200" : "hover:bg-gray-100"
+              conv.id === selectedConversationId
+                ? "bg-gray-200"
+                : "hover:bg-gray-100"
             }`}
           >
             {new Date(conv.created_at).toLocaleString()}
@@ -83,10 +88,10 @@ export default async function ChatPage({
       </aside>
       <div className="flex-1">
         <ChatClient
-  key={selectedConversationId ?? "new"}
-  conversationId={selectedConversationId ?? null}
-  initialMessages={initialMessages}
-/>
+          key={selectedConversationId ?? "new"}
+          conversationId={selectedConversationId ?? null}
+          initialMessages={initialMessages}
+        />
       </div>
     </div>
   );

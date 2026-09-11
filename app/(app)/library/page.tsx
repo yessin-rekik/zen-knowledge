@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/db";
 import { createDocument } from "./actions";
 import { ExtractButton } from "./extract-button";
 import { publishDocument } from "./actions";
+import { deleteDocument } from "./actions";
 
 export default async function LibraryPage() {
   const session = await auth();
@@ -10,7 +11,9 @@ export default async function LibraryPage() {
 
   const { data: documents } = await supabaseAdmin
     .from("documents")
-    .select("id, title, service, status, version, visibility_roles, date_revision, extraction_status")
+    .select(
+      "id, title, service, status, version, visibility_roles, date_revision, extraction_status",
+    )
     .eq("company_id", companyId)
     .order("created_at", { ascending: false });
 
@@ -39,13 +42,13 @@ export default async function LibraryPage() {
             </label>
           ))}
         </div>
-	<input
-  		type="file"
-  		name="file"
-  		accept=".pdf"
-  		className="w-full rounded border px-3 py-2"
-  		required
-	/>
+        <input
+          type="file"
+          name="file"
+          accept=".pdf"
+          className="w-full rounded border px-3 py-2"
+          required
+        />
         <input
           type="date"
           name="date_revision"
@@ -58,25 +61,41 @@ export default async function LibraryPage() {
 
       <ul className="space-y-2">
         {documents?.map((doc) => (
-          <li key={doc.id} className="border rounded p-3 flex justify-between items-center">
-  <div>
-    <p className="font-medium">{doc.title}</p>
-    <p className="text-sm text-gray-500">
-      {doc.service} — v{doc.version} — {doc.status} — rôles: {doc.visibility_roles.join(", ")}
-      {doc.extraction_status && ` — extraction: ${doc.extraction_status}`}
-    </p>
-  </div>
-  <div className="flex gap-2 items-center">
-    <ExtractButton documentId={doc.id} />
-    {doc.status === "draft" && doc.extraction_status === "ok" && (
-      <form action={publishDocument.bind(null, doc.id)}>
-        <button type="submit" className="rounded bg-green-600 px-3 py-1 text-sm text-white">
-          Publier
-        </button>
-      </form>
-    )}
-  </div>
-</li>
+          <li
+            key={doc.id}
+            className="border rounded p-3 flex justify-between items-center"
+          >
+            <div>
+              <p className="font-medium">{doc.title}</p>
+              <p className="text-sm text-gray-500">
+                {doc.service} — v{doc.version} — {doc.status} — rôles:{" "}
+                {doc.visibility_roles.join(", ")}
+                {doc.extraction_status &&
+                  ` — extraction: ${doc.extraction_status}`}
+              </p>
+            </div>
+            <div className="flex gap-2 items-center">
+              <ExtractButton documentId={doc.id} />
+              {doc.status === "draft" && doc.extraction_status === "ok" && (
+                <form action={publishDocument.bind(null, doc.id)}>
+                  <button
+                    type="submit"
+                    className="rounded bg-green-600 px-3 py-1 text-sm text-white"
+                  >
+                    Publier
+                  </button>
+                </form>
+              )}
+            </div>
+              <form action={deleteDocument.bind(null, doc.id)}>
+                <button
+                  type="submit"
+                  className="rounded bg-red-600 px-3 py-1 text-sm text-white"
+                >
+                  Supprimer
+                </button>
+              </form>
+          </li>
         ))}
       </ul>
     </div>

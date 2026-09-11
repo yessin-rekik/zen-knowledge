@@ -7,6 +7,7 @@ interface Source {
   chunkId: string;
   documentId: string;
   excerpt: string;
+  isDeleted?: boolean;
 }
 
 interface Message {
@@ -108,15 +109,22 @@ export function ChatClient({
             </p>
             {msg.sources && msg.sources.length > 0 && (
               <div className="mt-1 text-xs text-gray-500 space-y-1">
-                {msg.sources.map((s, j) => (
-                  <button
-                    key={j}
-                    onClick={() => openDocument(s.documentId)}
-                    className="block text-left underline hover:text-blue-600"
-                  >
-                    [Source {j + 1}] {s.excerpt.slice(0, 80)}...
-                  </button>
-                ))}
+                {msg.sources.map((s, j) =>
+                  s.isDeleted ? (
+                    <p key={j} className="text-gray-400 italic">
+                      [Source {j + 1}] document supprimé —{" "}
+                      {s.excerpt.slice(0, 80)}...
+                    </p>
+                  ) : (
+                    <button
+                      key={j}
+                      onClick={() => openDocument(s.documentId)}
+                      className="block text-left underline hover:text-blue-600"
+                    >
+                      [Source {j + 1}] {s.excerpt.slice(0, 80)}...
+                    </button>
+                  ),
+                )}
               </div>
             )}
             {msg.role === "assistant" && msg.messageId && (
