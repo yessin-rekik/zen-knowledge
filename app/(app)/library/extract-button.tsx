@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Loader2, CheckCircle, AlertCircle } from "lucide-react";
 
 export function ExtractButton({ documentId }: { documentId: string }) {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [result, setResult] = useState<string | null>(null);
+  const [result, setResult] = useState<{
+    ok: boolean;
+    message: string;
+  } | null>(null);
 
   const handleClick = async () => {
     setLoading(true);
@@ -22,11 +26,14 @@ export function ExtractButton({ documentId }: { documentId: string }) {
     setLoading(false);
 
     if (!res.ok) {
-      setResult(`Erreur: ${data.error}`);
+      setResult({ ok: false, message: data.error ?? "Erreur inconnue" });
       return;
     }
 
-    setResult(`Statut: ${data.status} (${data.textLength} caractères)`);
+    setResult({
+      ok: true,
+      message: `${data.textLength ?? 0} caractères indexés`,
+    });
     router.refresh();
   };
 
@@ -35,11 +42,50 @@ export function ExtractButton({ documentId }: { documentId: string }) {
       <button
         onClick={handleClick}
         disabled={loading}
-        className="rounded bg-gray-200 px-3 py-1 text-sm"
+        aria-label={loading ? "Extraction en cours" : "Lancer l'extraction"}
+        className="
+          flex items-center gap-1.5
+          px-2.5 py-1 rounded
+          text-xs font-medium
+          border border-[#D6D2CB]
+          text-[#6B695E] bg-transparent
+          hover:border-[#2D5D53] hover:text-[#2D5D53]
+          disabled:opacity-50 disabled:cursor-not-allowed
+          zen-transition
+          focus-visible:outline-2 focus-visible:outline-[#2D5D53] focus-visible:outline-offset-1
+        "
       >
-        {loading ? "Extraction..." : "Extraire"}
+        {loading ? (
+          <>
+            <Loader2
+              size={11}
+              strokeWidth={2}
+              className="animate-spin"
+              aria-hidden="true"
+            />
+            Extraction…
+          </>
+        ) : (
+          "Extraire"
+        )}
       </button>
-      {result && <p className="text-xs text-gray-500">{result}</p>}
+
+      {result && (
+        <p
+          className={`flex items-center gap-1 text-[10px] ${
+            result.ok ? "text-[#2D5D53]" : "text-[#B54A45]"
+          }`}
+          role="status"
+          aria-live="polite"
+        >
+          {result.ok ? (
+            <CheckCircle size={10} strokeWidth={2} aria-hidden="true" />
+          ) : (
+            <AlertCircle size={10} strokeWidth={2} aria-hidden="true" />
+          )}
+          {result.message}
+        </p>
+      )}
     </div>
   );
 }

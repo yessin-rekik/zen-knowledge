@@ -1,0 +1,71 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { MessageSquare, BookOpen, LayoutDashboard } from "lucide-react";
+
+interface NavItem {
+  href: string;
+  label: string;
+  icon: React.ReactNode;
+  /** segment de pathname qui active ce lien */
+  segment: string;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    href: "/chat",
+    label: "Chat",
+    icon: <MessageSquare size={16} strokeWidth={1.75} />,
+    segment: "chat",
+  },
+  {
+    href: "/library",
+    label: "Bibliothèque",
+    icon: <BookOpen size={16} strokeWidth={1.75} />,
+    segment: "library",
+  },
+  {
+    href: "/admin",
+    label: "Administration",
+    icon: <LayoutDashboard size={16} strokeWidth={1.75} />,
+    segment: "admin",
+  },
+];
+
+export function SidebarNav() {
+  const pathname = usePathname();
+
+  return (
+    <nav aria-label="Navigation principale">
+      <ul className="space-y-0.5" role="list">
+        {NAV_ITEMS.map((item) => {
+          const isActive = pathname.startsWith(`/${item.segment}`);
+          return (
+            <li key={item.href}>
+              <Link
+                href={item.href}
+                aria-current={isActive ? "page" : undefined}
+                className={[
+                  "flex items-center justify-center sm:justify-start sm:gap-2.5 px-0 sm:px-3 py-2 rounded-md text-sm zen-transition w-full",
+                  "focus-visible:outline-2 focus-visible:outline-sapin focus-visible:outline-offset-1",
+                  isActive
+                    ? "bg-white text-graphite font-medium shadow-[0_1px_3px_rgba(28,35,33,0.08)]"
+                    : "text-text-secondary hover:text-graphite hover:bg-white/50",
+                ].join(" ")}
+              >
+                <span
+                  className={isActive ? "text-sapin" : ""}
+                  aria-hidden="true"
+                >
+                  {item.icon}
+                </span>
+                <span className="hidden sm:inline">{item.label}</span>
+              </Link>
+            </li>
+          );
+        })}
+      </ul>
+    </nav>
+  );
+}
