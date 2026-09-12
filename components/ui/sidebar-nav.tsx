@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, BookOpen, LayoutDashboard, Users } from "lucide-react";
+import { MessageSquare, BookOpen, LayoutDashboard, Users, ListTodo } from "lucide-react";
 
 interface NavItem {
   href: string;
@@ -24,6 +24,12 @@ const NAV_ITEMS: NavItem[] = [
     label: "Bibliothèque",
     icon: <BookOpen size={16} strokeWidth={1.75} />,
     segment: "library",
+  },
+  {
+    href: "/tasks",
+    label: "Mes tâches",
+    icon: <ListTodo size={16} strokeWidth={1.75} />,
+    segment: "tasks",
   },
   {
     href: "/admin",
