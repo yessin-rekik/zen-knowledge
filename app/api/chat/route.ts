@@ -12,6 +12,7 @@ export async function POST(req: NextRequest) {
   const companyId = (session.user as any).companyId;
   const role = (session.user as any).role;
   const userId = (session.user as any).id;
+  const departmentId = (session.user as any).departmentId;
 
   const { question, conversationId } = await req.json();
   if (!question) {
@@ -37,7 +38,7 @@ export async function POST(req: NextRequest) {
     content: question,
   });
 
-  const chunks = await retrieveRelevantChunks(question, companyId, role);
+  const chunks = await retrieveRelevantChunks(question, companyId, role, departmentId ?? null);
   const result = await generateAnswer(question, chunks);
 
   const latencyMs = Date.now() - startTime;

@@ -18,7 +18,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const { data: user, error } = await supabaseAdmin
           .from("users")
-          .select("id, email, password_hash, company_id, role")
+          .select("id, email, password_hash, company_id, role, department_id")
           .eq("email", email)
           .single();
 
@@ -33,6 +33,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           companyId: user.company_id,
           role: user.role,
+          departmentId: user.department_id,
         };
       },
     }),

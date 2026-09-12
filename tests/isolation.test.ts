@@ -118,3 +118,132 @@ describe("Isolation par société (RLS + RPC match_chunks)", () => {
     expect(data).toEqual([]);
   });
 });
+
+describe("Isolation par département (RPC match_chunks)", () => {
+  let companyId: string;
+  let deptAId: string;
+  let deptBId: string;
+  let docDeptAId: string;
+  let docDeptBId: string;
+  let docNoDeptId: string;
+
+  beforeAll(async () => {
+    const { data: company } = await supabaseAdmin
+      .from("companies")
+      .insert({ name: "Test Company Dept" })
+      .select("id")
+      .single();
+    companyId = company!.id;
+
+    const { data: deptA } = await supabaseAdmin
+      .from("departments")
+      .insert({ company_id: companyId, name: "Dept A" })
+      .select("id")
+      .single();
+    deptAId = deptA!.id;
+
+    const { data: deptB } = await supabaseAdmin
+      .from("departments")
+      .insert({ company_id: companyId, name: "Dept B" })
+      .select("id")
+      .single();
+    deptBId = deptB!.id;
+
+    const { data: docDeptA } = await supabaseAdmin
+      .from("documents")
+      .insert({
+        company_id: companyId,
+        department_id: deptAId,
+        title: "Doc Dept A",
+        visibility_roles: ["admin"],
+        status: "published",
+        version: 1,
+      })
+      .select("id")
+      .single();
+    docDeptAId = docDeptA!.id;
+
+    const { data: docDeptB } = await supabaseAdmin
+      .from("documents")
+      .insert({
+        company_id: companyId,
+        department_id: deptBId,
+        title: "Doc Dept B",
+        visibility_roles: ["admin"],
+        status: "published",
+        version: 1,
+      })
+      .select("id")
+      .single();
+    docDeptBId = docDeptB!.id;
+
+    const { data: docNoDept } = await supabaseAdmin
+      .from("documents")
+      .insert({
+        company_id: companyId,
+        department_id: null,
+        title: "Doc Sans Département",
+        visibility_roles: ["admin"],
+        status: "published",
+        version: 1,
+      })
+      .select("id")
+      .single();
+    docNoDeptId = docNoDept!.id;
+
+    await supabaseAdmin.from("document_chunks").insert([
+      {
+        document_id: docDeptAId,
+        version: 1,
+        content: "Contenu du département A",
+        embedding: FAKE_EMBEDDING,
+        is_active: true,
+      },
+      {
+        document_id: docDeptBId,
+        version: 1,
+        content: "Contenu du département B",
+        embedding: FAKE_EMBEDDING,
+        is_active: true,
+      },
+      {
+        document_id: docNoDeptId,
+        version: 1,
+        content: "Contenu sans département, visible à toute la société",
+        embedding: FAKE_EMBEDDING,
+        is_active: true,
+      },
+    ]);
+  });
+
+  afterAll(async () => {
+    await supabaseAdmin
+      .from("document_chunks")
+      .delete()
+      .in("document_id", [docDeptAId, docDeptBId, docNoDeptId]);
+    await supabaseAdmin
+      .from("documents")
+      .delete()
+      .in("id", [docDeptAId, docDeptBId, docNoDeptId]);
+    await supabaseAdmin.from("departments").delete().in("id", [deptAId, deptBId]);
+    await supabaseAdmin.from("companies").delete().eq("id", companyId);
+  });
+
+  it("un utilisateur du département A voit les docs de son département et les docs sans département, mais pas ceux du département B", async () => {
+    const { data, error } = await supabaseAdmin.rpc("match_chunks", {
+      query_embedding: FAKE_EMBEDDING,
+      p_company_id: companyId,
+      p_role: "admin",
+      p_department_id: deptAId,
+      match_threshold: 0.0,
+      match_count: 10,
+    });
+
+    expect(error).toBeNull();
+    const documentIds = data!.map((row: any) => row.document_id);
+
+    expect(documentIds).toContain(docDeptAId);
+    expect(documentIds).toContain(docNoDeptId);
+    expect(documentIds).not.toContain(docDeptBId);
+  });
+});
