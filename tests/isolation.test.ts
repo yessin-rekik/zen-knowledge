@@ -11,6 +11,7 @@ const supabaseAdmin = createClient(
 
 // Vecteur factice de dimension 384 (même valeur partout = similarité parfaite entre tous les chunks)
 const FAKE_EMBEDDING = new Array(384).fill(0.1);
+const FAKE_USER_ID = "00000000-0000-0000-0000-000000000001";
 
 describe("Isolation par société (RLS + RPC match_chunks)", () => {
   let companyAId: string;
@@ -94,6 +95,7 @@ describe("Isolation par société (RLS + RPC match_chunks)", () => {
       p_role: "admin",
       match_threshold: 0.0, // seuil à zéro pour forcer la recherche à considérer tous les chunks
       match_count: 10,
+      p_user_id: FAKE_USER_ID,
     });
 
     expect(error).toBeNull();
@@ -112,6 +114,7 @@ describe("Isolation par société (RLS + RPC match_chunks)", () => {
       p_role: "employee", // le document est visible seulement pour "admin"
       match_threshold: 0.0,
       match_count: 10,
+      p_user_id: FAKE_USER_ID,
     });
 
     expect(error).toBeNull();
@@ -237,6 +240,7 @@ describe("Isolation par département (RPC match_chunks)", () => {
       p_department_id: deptAId,
       match_threshold: 0.0,
       match_count: 10,
+      p_user_id: FAKE_USER_ID,
     });
 
     expect(error).toBeNull();

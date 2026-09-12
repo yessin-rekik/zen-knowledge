@@ -13,6 +13,7 @@ export async function retrieveRelevantChunks(
   query: string,
   companyId: string,
   role: string,
+  userId: string,
   departmentId: string | null,
 ): Promise<RetrievedChunk[]> {
   const queryEmbedding = await embedText(query);
@@ -21,6 +22,7 @@ export async function retrieveRelevantChunks(
     query_embedding: queryEmbedding,
     p_company_id: companyId,
     p_role: role,
+    p_user_id: userId,
     p_department_id: departmentId,
   });
 

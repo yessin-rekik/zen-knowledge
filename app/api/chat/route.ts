@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     content: question,
   });
 
-  const chunks = await retrieveRelevantChunks(question, companyId, role, departmentId ?? null);
+  const chunks = await retrieveRelevantChunks(question, companyId, role, userId, departmentId ?? null);
   const result = await generateAnswer(question, chunks);
 
   const latencyMs = Date.now() - startTime;
