@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MessageSquare, BookOpen, LayoutDashboard } from "lucide-react";
+import { MessageSquare, BookOpen, LayoutDashboard, Users } from "lucide-react";
 
 interface NavItem {
   href: string;
@@ -31,6 +31,12 @@ const NAV_ITEMS: NavItem[] = [
     icon: <LayoutDashboard size={16} strokeWidth={1.75} />,
     segment: "admin",
   },
+  {
+    href: "/admin/users",
+    label: "Collaborateurs",
+    icon: <Users size={16} strokeWidth={1.75} />,
+    segment: "admin/users",
+  },
 ];
 
 export function SidebarNav() {
@@ -40,7 +46,10 @@ export function SidebarNav() {
     <nav aria-label="Navigation principale">
       <ul className="space-y-0.5" role="list">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname.startsWith(`/${item.segment}`);
+          const isActive =
+            item.segment === "admin"
+              ? pathname === "/admin"
+              : pathname.startsWith(`/${item.segment}`);
           return (
             <li key={item.href}>
               <Link
