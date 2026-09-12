@@ -2,7 +2,8 @@ import { auth } from "@/lib/auth";
 import { signOut } from "@/lib/auth";
 import { ZenLogo } from "@/components/ui/zen-logo";
 import { SidebarNav } from "@/components/ui/sidebar-nav";
-import { LogOut } from "lucide-react";
+import { LogOut, UserCircle } from "lucide-react";
+import Link from "next/link";
 
 export default async function AppLayout({
   children,
@@ -43,20 +44,27 @@ export default async function AppLayout({
 
         {/* Pied de sidebar — utilisateur + déconnexion */}
         <div className="border-t border-[#D6D2CB] px-2 py-3 space-y-1">
-          {user?.email && (
-            <div className="hidden sm:block px-3 py-1.5">
-              <p
-                className="text-xs text-[#6B695E] truncate"
-                title={user.email}
-              >
-                {user.email}
-              </p>
-              {user.role && (
-                <p className="text-[11px] text-[#6B695E]/70 capitalize mt-0.5">
-                  {user.role}
-                </p>
-              )}
-            </div>
+          <Link
+            href="/profile"
+            className="
+              flex items-center justify-center sm:justify-start gap-2.5 w-full
+              px-0 sm:px-3 py-2 rounded-md
+              text-sm text-[#6B695E]
+              hover:text-[#1C2321] hover:bg-white/50
+              zen-transition
+              focus-visible:outline-2 focus-visible:outline-[#2D5D53] focus-visible:outline-offset-1
+            "
+          >
+            <UserCircle size={16} strokeWidth={1.75} aria-hidden="true" />
+            <span className="hidden sm:inline truncate">
+              {user?.email ?? "Mon profil"}
+            </span>
+          </Link>
+
+          {user?.role && (
+            <p className="hidden sm:block text-[11px] text-[#6B695E]/70 capitalize px-3">
+              {user.role}
+            </p>
           )}
 
           {/* Déconnexion via Server Action POST — pas un lien GET */}
