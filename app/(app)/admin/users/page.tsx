@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db";
 import { InviteForm } from "./invite-form";
-import { DeactivateUserButton } from "./deactivate-button";
+import { EditUserRow } from "./edit-user-row";
 import { redirect } from "next/navigation";
 
 export const metadata = {
@@ -35,17 +35,13 @@ export default async function UsersPage() {
           <h2 className="mb-3">Membres de votre société</h2>
           <ul className="divide-y divide-[#D6D2CB]">
             {users?.map((u) => (
-              <li key={u.id} className="flex items-center justify-between py-3">
-                <div>
-                  <p className="text-sm font-medium text-[#1C2321]">
-                    {u.email}
-                  </p>
-                  <p className="text-xs text-[#6B695E] capitalize">{u.role}</p>
-                </div>
-                {u.id !== currentUserId && (
-                  <DeactivateUserButton userId={u.id} email={u.email} />
-                )}
-              </li>
+              <EditUserRow
+                key={u.id}
+                userId={u.id}
+                email={u.email}
+                role={u.role}
+                isSelf={u.id === currentUserId}
+              />
             ))}
           </ul>
         </section>
