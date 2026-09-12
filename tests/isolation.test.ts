@@ -251,3 +251,184 @@ describe("Isolation par département (RPC match_chunks)", () => {
     expect(documentIds).not.toContain(docDeptBId);
   });
 });
+
+describe("Règles d'accès explicites (document_access_rules)", () => {
+  let companyAId: string;
+  let companyBId: string;
+  let targetUserId: string;
+  let docDenyId: string;
+  let docAllowId: string;
+  let docGroupWideId: string;
+
+  beforeAll(async () => {
+    const { data: companyA } = await supabaseAdmin
+      .from("companies")
+      .insert({ name: "Test Rules Company A" })
+      .select("id")
+      .single();
+    companyAId = companyA!.id;
+
+    const { data: companyB } = await supabaseAdmin
+      .from("companies")
+      .insert({ name: "Test Rules Company B" })
+      .select("id")
+      .single();
+    companyBId = companyB!.id;
+
+    // Utilisateur fictif de la société B, ciblé par une règle 'allow' sur un doc de A
+    const { data: targetUser } = await supabaseAdmin
+      .from("users")
+      .insert({
+        email: `test-rule-user-${Date.now()}@example.com`,
+        company_id: companyBId,
+        role: "employee",
+        password_hash: "unused",
+      })
+      .select("id")
+      .single();
+    targetUserId = targetUser!.id;
+
+    // Doc normalement visible par A, mais avec un 'deny' explicite sur A
+    const { data: docDeny } = await supabaseAdmin
+      .from("documents")
+      .insert({
+        company_id: companyAId,
+        title: "Doc Deny Test",
+        visibility_roles: ["admin", "employee"],
+        status: "published",
+        version: 1,
+      })
+      .select("id")
+      .single();
+    docDenyId = docDeny!.id;
+
+    await supabaseAdmin.from("document_access_rules").insert({
+      document_id: docDenyId,
+      scope_type: "company",
+      scope_id: companyAId,
+      access: "deny",
+    });
+
+    // Doc de la société A, normalement invisible à un user de B, mais 'allow' explicite pour targetUser
+    const { data: docAllow } = await supabaseAdmin
+      .from("documents")
+      .insert({
+        company_id: companyAId,
+        title: "Doc Allow Test",
+        visibility_roles: ["admin"],
+        status: "published",
+        version: 1,
+      })
+      .select("id")
+      .single();
+    docAllowId = docAllow!.id;
+
+    await supabaseAdmin.from("document_access_rules").insert({
+      document_id: docAllowId,
+      scope_type: "user",
+      scope_id: targetUserId,
+      access: "allow",
+    });
+
+    // Doc group-wide, visible à toute société indépendamment des règles habituelles
+    const { data: docGroupWide } = await supabaseAdmin
+      .from("documents")
+      .insert({
+        company_id: companyAId,
+        title: "Doc Group Wide Test",
+        visibility_roles: ["admin"],
+        status: "published",
+        version: 1,
+        is_group_wide: true,
+      })
+      .select("id")
+      .single();
+    docGroupWideId = docGroupWide!.id;
+
+    await supabaseAdmin.from("document_chunks").insert([
+      {
+        document_id: docDenyId,
+        version: 1,
+        content: "Contenu deny",
+        embedding: FAKE_EMBEDDING,
+        is_active: true,
+      },
+      {
+        document_id: docAllowId,
+        version: 1,
+        content: "Contenu allow",
+        embedding: FAKE_EMBEDDING,
+        is_active: true,
+      },
+      {
+        document_id: docGroupWideId,
+        version: 1,
+        content: "Contenu group-wide",
+        embedding: FAKE_EMBEDDING,
+        is_active: true,
+      },
+    ]);
+  });
+
+  afterAll(async () => {
+    await supabaseAdmin
+      .from("document_chunks")
+      .delete()
+      .in("document_id", [docDenyId, docAllowId, docGroupWideId]);
+    await supabaseAdmin
+      .from("document_access_rules")
+      .delete()
+      .in("document_id", [docDenyId, docAllowId]);
+    await supabaseAdmin
+      .from("documents")
+      .delete()
+      .in("id", [docDenyId, docAllowId, docGroupWideId]);
+    await supabaseAdmin.from("users").delete().eq("id", targetUserId);
+    await supabaseAdmin.from("companies").delete().in("id", [companyAId, companyBId]);
+  });
+
+  it("une règle 'deny' explicite exclut un document même si la société y aurait normalement accès", async () => {
+    const { data, error } = await supabaseAdmin.rpc("match_chunks", {
+      query_embedding: FAKE_EMBEDDING,
+      p_company_id: companyAId,
+      p_role: "admin",
+      p_user_id: FAKE_USER_ID,
+      match_threshold: 0.0,
+      match_count: 10,
+    });
+
+    expect(error).toBeNull();
+    const documentIds = data!.map((row: any) => row.document_id);
+    expect(documentIds).not.toContain(docDenyId);
+  });
+
+  it("une règle 'allow' explicite donne accès à un utilisateur normalement hors périmètre", async () => {
+    const { data, error } = await supabaseAdmin.rpc("match_chunks", {
+      query_embedding: FAKE_EMBEDDING,
+      p_company_id: companyBId,
+      p_role: "employee",
+      p_user_id: targetUserId,
+      match_threshold: 0.0,
+      match_count: 10,
+    });
+
+    expect(error).toBeNull();
+    const documentIds = data!.map((row: any) => row.document_id);
+    expect(documentIds).toContain(docAllowId);
+  });
+
+  it("un document group-wide est visible depuis n'importe quelle société", async () => {
+    const { data, error } = await supabaseAdmin.rpc("match_chunks", {
+      query_embedding: FAKE_EMBEDDING,
+      p_company_id: companyBId,
+      p_role: "employee",
+      p_user_id: FAKE_USER_ID,
+      match_threshold: 0.0,
+      match_count: 10,
+    });
+
+    expect(error).toBeNull();
+    const documentIds = data!.map((row: any) => row.document_id);
+    expect(documentIds).toContain(docGroupWideId);
+  });
+});
