@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
     tokens_out: result.tokensOut,
     retrieved_doc_ids: [...new Set(result.usedChunks.map((c) => c.documentId))],
     message_id: assistantMessage.id,
+    question,
   });
 
   return NextResponse.json({

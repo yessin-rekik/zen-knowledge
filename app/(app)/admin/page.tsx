@@ -99,24 +99,18 @@ export default async function AdminPage() {
   const { data: logs } = await supabaseAdmin
     .from("query_logs")
     .select(
-      "id, latency_ms, tokens_in, tokens_out, retrieved_doc_ids, message_id, created_at",
+      "id, latency_ms, tokens_in, tokens_out, retrieved_doc_ids, message_id, question, created_at",
     )
     .in("user_id", userIds)
     .order("created_at", { ascending: false });
 
   const { data: negativeFeedback } = await supabaseAdmin
-    .from("messages")
-    .select("id, content, created_at")
-    .eq("feedback", "inaccurate")
-    .in(
-      "conversation_id",
-      (
-        await supabaseAdmin
-          .from("conversations")
-          .select("id")
-          .in("user_id", userIds)
-      ).data?.map((c) => c.id) ?? [],
-    );
+    .from("query_logs")
+    .select("id, question, created_at, messages(content)")
+    .in("user_id", userIds)
+    .eq("messages.feedback", "inaccurate")
+    .not("message_id", "is", null)
+    .order("created_at", { ascending: false });;
 
   const noResultLogs = (logs ?? []).filter(
     (l) => (l.retrieved_doc_ids ?? []).length === 0,
@@ -195,19 +189,24 @@ export default async function AdminPage() {
               key={l.id}
               className="px-4 py-3 flex items-center justify-between gap-4"
             >
-              <time
-                dateTime={l.created_at}
-                className="text-xs text-[#6B695E] shrink-0"
-              >
-                {new Date(l.created_at).toLocaleString("fr-FR", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </time>
-              <span className="text-xs text-[#1C2321] tabular-nums ml-auto">
+              <div className="min-w-0">
+                <p className="text-sm text-[#1C2321] truncate">
+                  {l.question || "(question non enregistrée)"}
+                </p>
+                <time
+                  dateTime={l.created_at}
+                  className="text-xs text-[#6B695E]"
+                >
+                  {new Date(l.created_at).toLocaleString("fr-FR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </time>
+              </div>
+              <span className="text-xs text-[#1C2321] tabular-nums shrink-0">
                 {l.latency_ms}
                 <span className="text-[#6B695E]"> ms</span>
               </span>
@@ -217,13 +216,13 @@ export default async function AdminPage() {
 
         {/* ── Feedback négatifs ── */}
         <SectionList title="Réponses inexactes" count={negCount}>
-          {(negativeFeedback ?? []).slice(0, 10).map((m) => (
-            <li key={m.id} className="px-4 py-3 space-y-0.5">
+          {(negativeFeedback ?? []).slice(0, 10).map((l: any) => (
+            <li key={l.id} className="px-4 py-3 space-y-0.5">
               <time
-                dateTime={m.created_at}
+                dateTime={l.created_at}
                 className="text-[11px] text-[#6B695E]"
               >
-                {new Date(m.created_at).toLocaleString("fr-FR", {
+                {new Date(l.created_at).toLocaleString("fr-FR", {
                   day: "2-digit",
                   month: "2-digit",
                   year: "2-digit",
@@ -231,7 +230,12 @@ export default async function AdminPage() {
                   minute: "2-digit",
                 })}
               </time>
-              <p className="text-xs text-[#1C2321] line-clamp-2">{m.content}</p>
+              <p className="text-xs font-medium text-[#1C2321]">
+                {l.question || "(question non enregistrée)"}
+              </p>
+              <p className="text-xs text-[#6B695E] line-clamp-2">
+                {l.messages?.content}
+              </p>
             </li>
           ))}
         </SectionList>
