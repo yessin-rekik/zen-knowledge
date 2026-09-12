@@ -14,6 +14,9 @@ import { DeleteButton } from "./delete-button";
 import { CustomFileInput, CustomDateInput } from "./custom-inputs";
 import { AddDocumentToggle } from "./add-document-toggle";
 
+import { getEffectiveCompanyId } from "@/lib/context";
+import { redirect } from "next/navigation";
+
 export const metadata = {
   title: "Bibliothèque",
 };
@@ -62,10 +65,15 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default async function LibraryPage() {
-  const session = await auth();
-  const companyId = (session?.user as any)?.companyId;
-  const role = (session?.user as any)?.role;
+    const session = await auth();
+  const user = session?.user as any;
+  const role = user?.role;
+  const companyId = await getEffectiveCompanyId(user);
   const canManage = role === "admin" || role === "manager";
+
+  if (role === "group_admin" && !companyId) {
+    redirect("/group");
+  }
 
   let query = supabaseAdmin
     .from("documents")

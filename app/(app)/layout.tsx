@@ -3,6 +3,9 @@ import { signOut } from "@/lib/auth";
 import { ZenLogo } from "@/components/ui/zen-logo";
 import { SidebarNav } from "@/components/ui/sidebar-nav";
 import { LogOut, UserCircle } from "lucide-react";
+import { getEffectiveCompanyId } from "@/lib/context";
+import { LeaveContextButton } from "@/app/(app)/group/leave-context-button";
+
 import Link from "next/link";
 
 export default async function AppLayout({
@@ -15,6 +18,8 @@ export default async function AppLayout({
     | { email?: string | null; role?: string }
     | undefined;
 
+  const activeCompanyId =
+    user?.role === "group_admin" ? await getEffectiveCompanyId(user) : null;
   return (
     <div className="flex flex-1 overflow-hidden bg-[#F7F5F0]">
       {/* ── Sidebar principale ── */}
@@ -44,6 +49,7 @@ export default async function AppLayout({
 
         {/* Pied de sidebar — utilisateur + déconnexion */}
         <div className="border-t border-[#D6D2CB] px-2 py-3 space-y-1">
+          {activeCompanyId && <LeaveContextButton />} 
           <Link
             href="/profile"
             className="
@@ -94,9 +100,7 @@ export default async function AppLayout({
       </aside>
 
       {/* ── Zone de contenu principale ── */}
-      <main className="flex-1 overflow-hidden">
-        {children}
-      </main>
+      <main className="flex-1 overflow-hidden">{children}</main>
     </div>
   );
 }

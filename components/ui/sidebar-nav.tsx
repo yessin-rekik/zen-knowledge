@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { MessageSquare, BookOpen, LayoutDashboard, Users, ListTodo } from "lucide-react";
+import {
+  MessageSquare,
+  BookOpen,
+  LayoutDashboard,
+  Users,
+  ListTodo,
+  Building2,
+} from "lucide-react";
 
 interface NavItem {
   href: string;
@@ -48,6 +55,13 @@ const NAV_ITEMS: NavItem[] = [
     segment: "admin/users",
     roles: ["admin"],
   },
+  {
+    href: "/group",
+    label: "Groupe",
+    icon: <Building2 size={16} strokeWidth={1.75} />,
+    segment: "group",
+    roles: ["group_admin"],
+  },
 ];
 
 export function SidebarNav() {
@@ -55,7 +69,9 @@ export function SidebarNav() {
   const { data: session } = useSession();
   const role = (session?.user as any)?.role;
 
-  const visibleItems = NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(role));
+  const visibleItems = NAV_ITEMS.filter(
+    (item) => !item.roles || item.roles.includes(role),
+  );
 
   return (
     <nav aria-label="Navigation principale">

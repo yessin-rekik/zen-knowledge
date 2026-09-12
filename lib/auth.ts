@@ -23,7 +23,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           .single();
 
         if (error || !user) return null;
-        if (!user.company_id) return null; // bloqué : utilisateur sans société
+        if (!user.company_id && user.role !== "group_admin") return null; // bloqué : utilisateur sans société (sauf group_admin)
 
         const valid = await bcrypt.compare(password, user.password_hash);
         if (!valid) return null;

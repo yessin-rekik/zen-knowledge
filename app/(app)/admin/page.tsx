@@ -3,6 +3,7 @@ import { supabaseAdmin } from "@/lib/db";
 import Link from "next/link";
 import { DollarSign, SearchX, ThumbsDown, AlertTriangle } from "lucide-react";
 import { redirect } from "next/navigation";
+import { getEffectiveCompanyId } from "@/lib/context";
 
 export const metadata = {
   title: "Administration",
@@ -82,13 +83,15 @@ function SectionList({
 
 export default async function AdminPage() {
   const session = await auth();
-  const companyId = (session?.user as any)?.companyId;
-
-  const role = (session?.user as any)?.role;
-  if (role !== "admin") {
+  const user = session?.user as any;
+  const role = user?.role;
+  if (role !== "admin" && role !== "group_admin") {
     redirect("/chat");
   }
-
+  const companyId = await getEffectiveCompanyId(user);
+  if (!companyId) {
+    redirect("/group");
+  }
   const { data: companyUsers } = await supabaseAdmin
     .from("users")
     .select("id")
@@ -110,7 +113,7 @@ export default async function AdminPage() {
     .in("user_id", userIds)
     .eq("messages.feedback", "inaccurate")
     .not("message_id", "is", null)
-    .order("created_at", { ascending: false });;
+    .order("created_at", { ascending: false });
 
   const noResultLogs = (logs ?? []).filter(
     (l) => (l.retrieved_doc_ids ?? []).length === 0,
