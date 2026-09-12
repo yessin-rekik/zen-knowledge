@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db";
 import { InviteForm } from "./invite-form";
 import { DeactivateUserButton } from "./deactivate-button";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Collaborateurs",
@@ -11,6 +12,11 @@ export default async function UsersPage() {
   const session = await auth();
   const companyId = (session?.user as any)?.companyId;
   const currentUserId = (session?.user as any)?.id;
+
+  const role = (session?.user as any)?.role;
+  if (role !== "admin") {
+    redirect("/chat");
+  }
 
   const { data: users } = await supabaseAdmin
     .from("users")
@@ -31,7 +37,9 @@ export default async function UsersPage() {
             {users?.map((u) => (
               <li key={u.id} className="flex items-center justify-between py-3">
                 <div>
-                  <p className="text-sm font-medium text-[#1C2321]">{u.email}</p>
+                  <p className="text-sm font-medium text-[#1C2321]">
+                    {u.email}
+                  </p>
                   <p className="text-xs text-[#6B695E] capitalize">{u.role}</p>
                 </div>
                 {u.id !== currentUserId && (

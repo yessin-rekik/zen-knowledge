@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { MessageSquare, BookOpen, LayoutDashboard, Users, ListTodo } from "lucide-react";
 
 interface NavItem {
@@ -10,6 +11,8 @@ interface NavItem {
   icon: React.ReactNode;
   /** segment de pathname qui active ce lien */
   segment: string;
+  /** rôles autorisés à voir ce lien — absent = visible par tous */
+  roles?: string[];
 }
 
 const NAV_ITEMS: NavItem[] = [
@@ -36,22 +39,28 @@ const NAV_ITEMS: NavItem[] = [
     label: "Administration",
     icon: <LayoutDashboard size={16} strokeWidth={1.75} />,
     segment: "admin",
+    roles: ["admin"],
   },
   {
     href: "/admin/users",
     label: "Collaborateurs",
     icon: <Users size={16} strokeWidth={1.75} />,
     segment: "admin/users",
+    roles: ["admin"],
   },
 ];
 
 export function SidebarNav() {
   const pathname = usePathname();
+  const { data: session } = useSession();
+  const role = (session?.user as any)?.role;
+
+  const visibleItems = NAV_ITEMS.filter((item) => !item.roles || item.roles.includes(role));
 
   return (
     <nav aria-label="Navigation principale">
       <ul className="space-y-0.5" role="list">
-        {NAV_ITEMS.map((item) => {
+        {visibleItems.map((item) => {
           const isActive =
             item.segment === "admin"
               ? pathname === "/admin"

@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db";
 import Link from "next/link";
 import { DollarSign, SearchX, ThumbsDown, AlertTriangle } from "lucide-react";
+import { redirect } from "next/navigation";
 
 export const metadata = {
   title: "Administration",
@@ -33,7 +34,10 @@ function KpiCard({
 
   return (
     <div className="flex gap-3 items-start p-4 bg-white rounded-lg border border-[#D6D2CB]">
-      <div className={`w-1 self-stretch rounded-sm ${barColor}`} aria-hidden="true" />
+      <div
+        className={`w-1 self-stretch rounded-sm ${barColor}`}
+        aria-hidden="true"
+      />
       <div className="flex-1 min-w-0">
         <p className="text-2xl font-700 text-[#1C2321] leading-none mb-1">
           {value}
@@ -79,6 +83,11 @@ function SectionList({
 export default async function AdminPage() {
   const session = await auth();
   const companyId = (session?.user as any)?.companyId;
+
+  const role = (session?.user as any)?.role;
+  if (role !== "admin") {
+    redirect("/chat");
+  }
 
   const { data: companyUsers } = await supabaseAdmin
     .from("users")
@@ -222,9 +231,7 @@ export default async function AdminPage() {
                   minute: "2-digit",
                 })}
               </time>
-              <p className="text-xs text-[#1C2321] line-clamp-2">
-                {m.content}
-              </p>
+              <p className="text-xs text-[#1C2321] line-clamp-2">{m.content}</p>
             </li>
           ))}
         </SectionList>
