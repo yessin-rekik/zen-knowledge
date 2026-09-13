@@ -10,6 +10,7 @@ import {
   Users,
   ListTodo,
   Building2,
+  ScrollText,
 } from "lucide-react";
 
 interface NavItem {
@@ -60,6 +61,13 @@ const NAV_ITEMS: NavItem[] = [
     label: "Groupe",
     icon: <Building2 size={16} strokeWidth={1.75} />,
     segment: "group",
+    roles: ["group_admin"],
+  },
+  {
+    href: "/group/audit",
+    label: "Journal d'audit",
+    icon: <ScrollText size={16} strokeWidth={1.75} />,
+    segment: "group/audit",
     roles: ["group_admin"],
   },
 ];
