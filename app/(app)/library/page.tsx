@@ -13,6 +13,7 @@ import { ChevronDown, Plus, Trash2, Clock } from "lucide-react";
 import { DeleteButton } from "./delete-button";
 import { CustomFileInput, CustomDateInput } from "./custom-inputs";
 import { AddDocumentToggle } from "./add-document-toggle";
+import { AccessRulesPanel } from "./access-rules-panel";
 
 import { getEffectiveCompanyId } from "@/lib/context";
 import { redirect } from "next/navigation";
@@ -65,7 +66,7 @@ function StatusBadge({ status }: { status: string }) {
 }
 
 export default async function LibraryPage() {
-    const session = await auth();
+  const session = await auth();
   const user = session?.user as any;
   const role = user?.role;
   const companyId = await getEffectiveCompanyId(user);
@@ -78,7 +79,7 @@ export default async function LibraryPage() {
   let query = supabaseAdmin
     .from("documents")
     .select(
-      "id, title, service, status, version, visibility_roles, date_revision, extraction_status",
+      "id, title, service, status, version, visibility_roles, date_revision, extraction_status, is_group_wide",
     )
     .eq("company_id", companyId);
 
@@ -91,6 +92,37 @@ export default async function LibraryPage() {
   const { data: documents } = await query.order("created_at", {
     ascending: false,
   });
+
+  // Données pour les règles d'accès — chargées uniquement si l'utilisateur peut gérer
+  let allCompanies: { id: string; name: string }[] = [];
+  let allUsers: { id: string; email: string }[] = [];
+  let rulesByDocument: Record<string, any[]> = {};
+
+  if (canManage && documents && documents.length > 0) {
+    const { data: companiesData } = await supabaseAdmin
+      .from("companies")
+      .select("id, name")
+      .order("name");
+    allCompanies = companiesData ?? [];
+
+    const { data: usersData } = await supabaseAdmin
+      .from("users")
+      .select("id, email")
+      .order("email");
+    allUsers = usersData ?? [];
+
+    const docIds = documents.map((d) => d.id);
+    const { data: rulesData } = await supabaseAdmin
+      .from("document_access_rules")
+      .select("id, document_id, scope_type, scope_id, access")
+      .in("document_id", docIds);
+
+    rulesByDocument = (rulesData ?? []).reduce((acc: Record<string, any[]>, rule) => {
+      if (!acc[rule.document_id]) acc[rule.document_id] = [];
+      acc[rule.document_id].push(rule);
+      return acc;
+    }, {});
+  }
 
   return (
     <div className="h-full overflow-y-auto">
@@ -278,6 +310,11 @@ export default async function LibraryPage() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <h3 className="truncate">{doc.title}</h3>
                     <StatusBadge status={doc.status} />
+                    {doc.is_group_wide && (
+                      <span className="text-[11px] text-[#2D5D53] bg-[#EEF2F0] px-1.5 py-0.5 rounded">
+                        Groupe entier
+                      </span>
+                    )}
                     {doc.extraction_status &&
                       doc.extraction_status !== "ok" && (
                         <span className="text-[11px] text-[#C08A3E] bg-[#FBF4E9] px-1.5 py-0.5 rounded">
@@ -304,6 +341,17 @@ export default async function LibraryPage() {
 
                   {/* Historique versions */}
                   <VersionHistory documentId={doc.id} />
+
+                  {/* Permissions avancées — admin/manager uniquement */}
+                  {canManage && (
+                    <AccessRulesPanel
+                      documentId={doc.id}
+                      isGroupWide={doc.is_group_wide}
+                      rules={rulesByDocument[doc.id] ?? []}
+                      companies={allCompanies}
+                      users={allUsers}
+                    />
+                  )}
                 </div>
 
                 {/* Actions — réservées à admin/manager */}

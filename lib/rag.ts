@@ -40,7 +40,8 @@ import Groq from "groq-sdk";
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-const FALLBACK_MESSAGE = "Je n'ai pas trouvé d'information suffisante dans les documents autorisés.";
+const FALLBACK_MESSAGE =
+  "Je n'ai pas trouvé d'information suffisante dans les documents autorisés.";
 
 const SYSTEM_PROMPT = `Tu es un assistant qui répond aux questions UNIQUEMENT à partir des extraits de documents fournis dans le contexte ci-dessous.
 
@@ -77,6 +78,7 @@ export async function generateAnswer(
 
   const completion = await groq.chat.completions.create({
     model: "openai/gpt-oss-20b",
+    temperature: 0,
     messages: [
       { role: "system", content: SYSTEM_PROMPT },
       {
@@ -89,9 +91,39 @@ export async function generateAnswer(
   const answer = completion.choices[0]?.message?.content ?? "";
   const isFallback = answer.trim().startsWith(FALLBACK_MESSAGE);
 
+  // Ne garder que les chunks dont le numéro de source apparaît réellement dans la réponse
+  const citedIndices = new Set(
+    [...answer.matchAll(/Source[\s\u202F]*(\d+)/g)].map(
+      (m) => parseInt(m[1], 10) - 1,
+    ),
+  );
+
+  const testMatches = [...answer.matchAll(/Source (\d+)/g)];
+  console.log(
+    "TEST MATCHES:",
+    testMatches.map((m) => m[0]),
+  );
+
+  console.log(
+    "CHAR CODES:",
+    answer
+      .slice(answer.indexOf("Source"), answer.indexOf("Source") + 10)
+      .split("")
+      .map((c) => c.charCodeAt(0)),
+  );
+
+  console.log("ANSWER:", answer);
+  console.log("CITED INDICES:", citedIndices);
+
+  const actuallyUsedChunks = chunks.filter((_, i) => citedIndices.has(i));
+
   return {
     answer,
-    usedChunks: isFallback ? [] : chunks,
+    usedChunks: isFallback
+      ? []
+      : actuallyUsedChunks.length > 0
+        ? actuallyUsedChunks
+        : chunks,
     tokensIn: completion.usage?.prompt_tokens ?? 0,
     tokensOut: completion.usage?.completion_tokens ?? 0,
   };

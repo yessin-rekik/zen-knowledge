@@ -4,7 +4,7 @@ import { supabaseAdmin } from "@/lib/db";
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
+  { params }: { params: Promise<{ id: string }> },
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -22,9 +22,41 @@ export async function GET(
     .single();
 
   if (error || !document) {
-    return NextResponse.json({ error: "Document introuvable." }, { status: 404 });
+    return NextResponse.json(
+      { error: "Document introuvable." },
+      { status: 404 },
+    );
   }
-  if (document.company_id !== companyId) {
+  const userId = (session.user as any).id;
+
+  const isOwnCompany = document.company_id === companyId;
+
+  const { data: isGroupWideDoc } = await supabaseAdmin
+    .from("documents")
+    .select("is_group_wide")
+    .eq("id", id)
+    .single();
+
+  const { data: allowRule } = await supabaseAdmin
+    .from("document_access_rules")
+    .select("id")
+    .eq("document_id", id)
+    .eq("access", "allow")
+    .or(`scope_id.eq.${companyId},scope_id.eq.${userId}`)
+    .maybeSingle();
+
+  const { data: denyRule } = await supabaseAdmin
+    .from("document_access_rules")
+    .select("id")
+    .eq("document_id", id)
+    .eq("access", "deny")
+    .or(`scope_id.eq.${companyId},scope_id.eq.${userId}`)
+    .maybeSingle();
+
+  const hasAccess =
+    !denyRule && (isOwnCompany || isGroupWideDoc?.is_group_wide || !!allowRule);
+
+  if (!hasAccess) {
     return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
   }
 
@@ -38,13 +70,19 @@ export async function GET(
       .single();
 
     if (versionError || !version || version.document_id !== id) {
-      return NextResponse.json({ error: "Version introuvable." }, { status: 404 });
+      return NextResponse.json(
+        { error: "Version introuvable." },
+        { status: 404 },
+      );
     }
     filePath = version.file_path;
   }
 
   if (!filePath) {
-    return NextResponse.json({ error: "Aucun fichier associé." }, { status: 404 });
+    return NextResponse.json(
+      { error: "Aucun fichier associé." },
+      { status: 404 },
+    );
   }
 
   const { data: signedUrl, error: urlError } = await supabaseAdmin.storage
