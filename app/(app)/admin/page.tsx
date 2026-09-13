@@ -1,9 +1,18 @@
 import { auth } from "@/lib/auth";
 import { supabaseAdmin } from "@/lib/db";
 import Link from "next/link";
-import { DollarSign, SearchX, ThumbsDown, AlertTriangle } from "lucide-react";
+import {
+  DollarSign,
+  SearchX,
+  ThumbsDown,
+  AlertTriangle,
+  MessageSquare,
+  Gauge,
+  FileText,
+} from "lucide-react";
 import { redirect } from "next/navigation";
 import { getEffectiveCompanyId } from "@/lib/context";
+import { QuestionsPanel } from "./questions-panel";
 
 export const metadata = {
   title: "Administration",
@@ -131,6 +140,56 @@ export default async function AdminPage() {
     (totalTokensIn / 1_000_000) * PRICE_PER_1M_INPUT +
     (totalTokensOut / 1_000_000) * PRICE_PER_1M_OUTPUT;
 
+  const totalQuestions = logs?.length ?? 0;
+
+  const feedbackGiven = (logs ?? []).filter((l: any) => l.messages?.feedback);
+  // Note : query_logs n'a pas de jointure messages par défaut dans le select actuel,
+  // donc on va chercher séparément les feedbacks positifs/négatifs
+  const { data: allFeedback } = await supabaseAdmin
+    .from("messages")
+    .select("feedback, conversation_id, conversations!inner(user_id)")
+    .in("conversations.user_id", userIds)
+    .not("feedback", "is", null);
+
+  const positiveFeedback = (allFeedback ?? []).filter(
+    (m: any) => m.feedback === "helpful",
+  ).length;
+  const totalFeedback = allFeedback?.length ?? 0;
+  const satisfactionRate =
+    totalFeedback > 0
+      ? Math.round((positiveFeedback / totalFeedback) * 100)
+      : null;
+
+  const avgLatency =
+    totalQuestions > 0
+      ? Math.round(
+          (logs ?? []).reduce(
+            (sum: number, l: any) => sum + (l.latency_ms ?? 0),
+            0,
+          ) / totalQuestions,
+        )
+      : 0;
+
+  // Document le plus cité
+  const docCitationCount: Record<string, number> = {};
+  (logs ?? []).forEach((l: any) => {
+    (l.retrieved_doc_ids ?? []).forEach((docId: string) => {
+      docCitationCount[docId] = (docCitationCount[docId] ?? 0) + 1;
+    });
+  });
+  const topDocId = Object.entries(docCitationCount).sort(
+    (a, b) => b[1] - a[1],
+  )[0]?.[0];
+  let topDocTitle: string | null = null;
+  if (topDocId) {
+    const { data: topDoc } = await supabaseAdmin
+      .from("documents")
+      .select("title")
+      .eq("id", topDocId)
+      .single();
+    topDocTitle = topDoc?.title ?? null;
+  }
+
   const { data: obsoleteDocuments } = await supabaseAdmin
     .from("documents")
     .select("id, title, date_revision, status")
@@ -148,7 +207,7 @@ export default async function AdminPage() {
 
         {/* ── Grille KPI 2×2 ── */}
         <section aria-label="Indicateurs clés">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
             <KpiCard
               value={`$${estimatedCost.toFixed(4)}`}
               label="Coût estimé (indicatif Groq)"
@@ -173,6 +232,28 @@ export default async function AdminPage() {
               icon={<AlertTriangle size={18} strokeWidth={1.5} />}
               accentColor={obsCount > 0 ? "amber" : "neutral"}
             />
+            <KpiCard
+              value={totalQuestions}
+              label="Questions posées au total"
+              icon={<MessageSquare size={18} strokeWidth={1.5} />}
+              accentColor="neutral"
+            />
+            <KpiCard
+              value={satisfactionRate !== null ? `${satisfactionRate}%` : "—"}
+              label="Taux de satisfaction"
+              icon={<ThumbsDown size={18} strokeWidth={1.5} />}
+              accentColor={
+                satisfactionRate !== null && satisfactionRate < 50
+                  ? "error"
+                  : "neutral"
+              }
+            />
+            <KpiCard
+              value={`${avgLatency} ms`}
+              label="Latence moyenne"
+              icon={<Gauge size={18} strokeWidth={1.5} />}
+              accentColor="neutral"
+            />
           </div>
 
           {/* Détail coût */}
@@ -180,68 +261,38 @@ export default async function AdminPage() {
             {totalTokensIn.toLocaleString("fr-FR")} tokens en entrée —{" "}
             {totalTokensOut.toLocaleString("fr-FR")} tokens en sortie
           </p>
+
+          {topDocTitle && (
+            <p className="mt-1 text-xs text-[#6B695E] flex items-center gap-1.5">
+              <FileText size={13} strokeWidth={1.75} aria-hidden="true" />
+              Document le plus cité :{" "}
+              <span className="font-medium text-[#1C2321]">{topDocTitle}</span>
+            </p>
+          )}
         </section>
 
         {/* ── Questions sans résultat ── */}
-        <SectionList
-          title="Questions sans résultat"
-          count={noResultLogs.length}
-        >
-          {noResultLogs.slice(0, 10).map((l) => (
-            <li
-              key={l.id}
-              className="px-4 py-3 flex items-center justify-between gap-4"
-            >
-              <div className="min-w-0">
-                <p className="text-sm text-[#1C2321] truncate">
-                  {l.question || "(question non enregistrée)"}
-                </p>
-                <time
-                  dateTime={l.created_at}
-                  className="text-xs text-[#6B695E]"
-                >
-                  {new Date(l.created_at).toLocaleString("fr-FR", {
-                    day: "2-digit",
-                    month: "2-digit",
-                    year: "2-digit",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
-                </time>
-              </div>
-              <span className="text-xs text-[#1C2321] tabular-nums shrink-0">
-                {l.latency_ms}
-                <span className="text-[#6B695E]"> ms</span>
-              </span>
-            </li>
-          ))}
-        </SectionList>
+        <QuestionsPanel
+  title="Questions sans résultat"
+  entries={noResultLogs.map((l: any) => ({
+    id: l.id,
+    question: l.question,
+    created_at: l.created_at,
+    latency_ms: l.latency_ms,
+  }))}
+  showLatency
+/>
 
         {/* ── Feedback négatifs ── */}
-        <SectionList title="Réponses inexactes" count={negCount}>
-          {(negativeFeedback ?? []).slice(0, 10).map((l: any) => (
-            <li key={l.id} className="px-4 py-3 space-y-0.5">
-              <time
-                dateTime={l.created_at}
-                className="text-[11px] text-[#6B695E]"
-              >
-                {new Date(l.created_at).toLocaleString("fr-FR", {
-                  day: "2-digit",
-                  month: "2-digit",
-                  year: "2-digit",
-                  hour: "2-digit",
-                  minute: "2-digit",
-                })}
-              </time>
-              <p className="text-xs font-medium text-[#1C2321]">
-                {l.question || "(question non enregistrée)"}
-              </p>
-              <p className="text-xs text-[#6B695E] line-clamp-2">
-                {l.messages?.content}
-              </p>
-            </li>
-          ))}
-        </SectionList>
+        <QuestionsPanel
+  title="Réponses inexactes"
+  entries={(negativeFeedback ?? []).map((l: any) => ({
+    id: l.id,
+    question: l.question,
+    created_at: l.created_at,
+    content: l.messages?.content,
+  }))}
+/>
 
         {/* ── Documents obsolètes ── */}
         <SectionList title="Documents à réviser" count={obsCount}>

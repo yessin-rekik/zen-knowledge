@@ -24,7 +24,7 @@ export function InviteForm() {
   };
 
   return (
-    <div className="border border-[#D6D2CB] rounded-lg p-5 space-y-4">
+    <div className="border border-[#D6D2CB] bg-white rounded-lg p-5 space-y-4">
       <h2>Inviter un collaborateur</h2>
 
       <form action={handleSubmit} className="flex gap-2 items-end flex-wrap">

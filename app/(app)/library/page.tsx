@@ -14,6 +14,7 @@ import { DeleteButton } from "./delete-button";
 import { CustomFileInput, CustomDateInput } from "./custom-inputs";
 import { AddDocumentToggle } from "./add-document-toggle";
 import { AccessRulesPanel } from "./access-rules-panel";
+import { DocumentsPanel } from "./documents-panel";
 
 import { getEffectiveCompanyId } from "@/lib/context";
 import { redirect } from "next/navigation";
@@ -21,49 +22,6 @@ import { redirect } from "next/navigation";
 export const metadata = {
   title: "Bibliothèque",
 };
-
-/* ── Barre de statut ── */
-function StatusBar({ status }: { status: string }) {
-  const colorMap: Record<string, string> = {
-    published: "status-bar-published",
-    draft: "status-bar-draft",
-    archived: "status-bar-archived",
-  };
-  return (
-    <div
-      className={`w-1 self-stretch rounded-sm shrink-0 ${
-        colorMap[status] ?? "status-bar-archived"
-      }`}
-      aria-hidden="true"
-    />
-  );
-}
-
-/* ── Badge statut textuel ── */
-function StatusBadge({ status }: { status: string }) {
-  const map: Record<string, { label: string; className: string }> = {
-    published: {
-      label: "Publié",
-      className: "text-[#2D5D53] bg-[#EEF2F0]",
-    },
-    draft: {
-      label: "Brouillon",
-      className: "text-[#C08A3E] bg-[#FBF4E9]",
-    },
-    archived: {
-      label: "Archivé",
-      className: "text-[#6B695E] bg-[#EAE7E1]",
-    },
-  };
-  const { label, className } = map[status] ?? map.archived;
-  return (
-    <span
-      className={`inline-block px-1.5 py-0.5 rounded text-[11px] font-medium ${className}`}
-    >
-      {label}
-    </span>
-  );
-}
 
 export default async function LibraryPage() {
   const session = await auth();
@@ -117,11 +75,14 @@ export default async function LibraryPage() {
       .select("id, document_id, scope_type, scope_id, access")
       .in("document_id", docIds);
 
-    rulesByDocument = (rulesData ?? []).reduce((acc: Record<string, any[]>, rule) => {
-      if (!acc[rule.document_id]) acc[rule.document_id] = [];
-      acc[rule.document_id].push(rule);
-      return acc;
-    }, {});
+    rulesByDocument = (rulesData ?? []).reduce(
+      (acc: Record<string, any[]>, rule) => {
+        if (!acc[rule.document_id]) acc[rule.document_id] = [];
+        acc[rule.document_id].push(rule);
+        return acc;
+      },
+      {},
+    );
   }
 
   return (
@@ -288,112 +249,19 @@ export default async function LibraryPage() {
             )}
           </div>
 
-          {documents?.length === 0 && (
+          {documents?.length === 0 ? (
             <p className="text-sm text-[#6B695E] py-8 text-center">
               Aucun document pour le moment.
             </p>
+          ) : (
+            <DocumentsPanel
+              documents={documents ?? []}
+              canManage={canManage}
+              rulesByDocument={rulesByDocument}
+              companies={allCompanies}
+              users={allUsers}
+            />
           )}
-
-          <ul className="divide-y divide-[#D6D2CB]" role="list">
-            {documents?.map((doc) => (
-              <li
-                key={doc.id}
-                role="listitem"
-                className="flex gap-3 py-4 items-start"
-              >
-                {/* Barre de statut */}
-                <StatusBar status={doc.status} />
-
-                {/* Contenu principal */}
-                <div className="flex-1 min-w-0 space-y-1.5">
-                  {/* Titre + badges */}
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="truncate">{doc.title}</h3>
-                    <StatusBadge status={doc.status} />
-                    {doc.is_group_wide && (
-                      <span className="text-[11px] text-[#2D5D53] bg-[#EEF2F0] px-1.5 py-0.5 rounded">
-                        Groupe entier
-                      </span>
-                    )}
-                    {doc.extraction_status &&
-                      doc.extraction_status !== "ok" && (
-                        <span className="text-[11px] text-[#C08A3E] bg-[#FBF4E9] px-1.5 py-0.5 rounded">
-                          Extraction {doc.extraction_status}
-                        </span>
-                      )}
-                  </div>
-
-                  {/* Métadonnées */}
-                  <p className="text-xs text-[#6B695E]">
-                    {[
-                      doc.service,
-                      `v${doc.version}`,
-                      doc.date_revision
-                        ? `révision ${new Date(doc.date_revision).toLocaleDateString("fr-FR")}`
-                        : null,
-                      doc.visibility_roles?.length > 0
-                        ? doc.visibility_roles.join(", ")
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" — ")}
-                  </p>
-
-                  {/* Historique versions */}
-                  <VersionHistory documentId={doc.id} />
-
-                  {/* Permissions avancées — admin/manager uniquement */}
-                  {canManage && (
-                    <AccessRulesPanel
-                      documentId={doc.id}
-                      isGroupWide={doc.is_group_wide}
-                      rules={rulesByDocument[doc.id] ?? []}
-                      companies={allCompanies}
-                      users={allUsers}
-                    />
-                  )}
-                </div>
-
-                {/* Actions — réservées à admin/manager */}
-                {canManage && (
-                  <div className="flex items-center gap-1.5 shrink-0 pt-0.5">
-                    <ExtractButton documentId={doc.id} />
-
-                    {doc.status === "draft" &&
-                      doc.extraction_status === "ok" && (
-                        <form action={publishDocument.bind(null, doc.id)}>
-                          <button
-                            type="submit"
-                            className="
-                                px-2.5 py-1 rounded text-xs font-medium
-                                border border-[#2D5D53]
-                                text-[#2D5D53] bg-transparent
-                                hover:bg-[#EEF2F0]
-                                zen-transition
-                                focus-visible:outline-2 focus-visible:outline-[#2D5D53] focus-visible:outline-offset-1
-                              "
-                          >
-                            Publier
-                          </button>
-                        </form>
-                      )}
-
-                    <ReuploadForm
-                      documentId={doc.id}
-                      documentTitle={doc.title}
-                      reuploadAction={reuploadDocument}
-                    />
-
-                    <DeleteButton
-                      documentId={doc.id}
-                      documentTitle={doc.title}
-                      deleteAction={deleteDocument}
-                    />
-                  </div>
-                )}
-              </li>
-            ))}
-          </ul>
         </section>
       </div>
     </div>

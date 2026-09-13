@@ -24,7 +24,7 @@ export function ChangePasswordForm() {
   };
 
   return (
-    <form action={handleSubmit} className="space-y-4 border border-[#D6D2CB] rounded-lg p-5">
+    <form action={handleSubmit} className="space-y-4 border border-[#D6D2CB] bg-white rounded-lg p-5">
       <h2>Changer de mot de passe</h2>
 
       <div className="space-y-1.5">
