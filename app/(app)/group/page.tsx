@@ -32,13 +32,23 @@ export default async function GroupPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="max-w-2xl mx-auto px-6 py-8 space-y-8">
+      <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
         <h1>Groupe — Sociétés</h1>
 
-        <CreateCompanyForm />
+        <section className="rounded-lg border border-[#D6D2CB] bg-white p-6">
+          <h2 className="mb-4">Nouvelle société</h2>
+          <CreateCompanyForm />
+        </section>
 
         <section>
-          <h2 className="mb-3">Sociétés</h2>
+          <div className="flex items-baseline justify-between mb-3">
+            <h2>Sociétés</h2>
+            {companies && (
+              <span className="text-xs text-[#6B695E]">
+                {companies.length} société{companies.length !== 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
           <ul className="divide-y divide-[#D6D2CB] rounded-lg border border-[#D6D2CB] bg-white overflow-hidden">
             {companies?.map((c) => (
               <li key={c.id} className="px-4 py-3 flex items-center justify-between gap-4">
@@ -61,7 +71,10 @@ export default async function GroupPage() {
           </ul>
         </section>
 
-        <CreateDepartmentForm companies={companies ?? []} />
+        <section className="rounded-lg border border-[#D6D2CB] bg-white p-6">
+          <h2 className="mb-4">Ajouter un département</h2>
+          <CreateDepartmentForm companies={companies ?? []} />
+        </section>
       </div>
     </div>
   );

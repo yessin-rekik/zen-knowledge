@@ -49,7 +49,7 @@ export function EditUserRow({
   };
 
   return (
-    <li className="py-3 space-y-2">
+    <li className="p-3 space-y-2">
       <div className="flex items-center justify-between gap-3">
         <div className="flex-1 min-w-0">
           {editing ? (
