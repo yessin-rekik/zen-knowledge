@@ -14,9 +14,10 @@ export default async function UsersPage() {
   const currentUserId = (session?.user as any)?.id;
 
   const role = (session?.user as any)?.role;
-  if (role !== "admin") {
-    redirect("/chat");
-  }
+
+if (role !== "admin" && role !== "group_admin") {
+  redirect("/chat");
+}
 
   const { data: users } = await supabaseAdmin
     .from("users")
