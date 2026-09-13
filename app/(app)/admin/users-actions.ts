@@ -73,3 +73,72 @@ export async function deactivateCollaborator(userId: string) {
 
   revalidatePath("/admin/users");
 }
+
+export async function updateCollaboratorEmail(userId: string, newEmail: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Non authentifié.");
+
+  const requesterRole = (session.user as any).role;
+  if (requesterRole !== "admin") throw new Error("Accès refusé.");
+
+  const companyId = (session.user as any).companyId;
+
+  const { data: targetUser, error: fetchError } = await supabaseAdmin
+    .from("users")
+    .select("company_id")
+    .eq("id", userId)
+    .single();
+
+  if (fetchError || !targetUser) throw new Error("Utilisateur introuvable.");
+  if (targetUser.company_id !== companyId) throw new Error("Accès refusé.");
+
+  const { data: existing } = await supabaseAdmin
+    .from("users")
+    .select("id")
+    .eq("email", newEmail)
+    .neq("id", userId)
+    .maybeSingle();
+
+  if (existing) throw new Error("Cet email est déjà utilisé.");
+
+  const { error } = await supabaseAdmin
+    .from("users")
+    .update({ email: newEmail })
+    .eq("id", userId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin/users");
+}
+
+export async function resetCollaboratorPassword(userId: string) {
+  const session = await auth();
+  if (!session?.user) throw new Error("Non authentifié.");
+
+  const requesterRole = (session.user as any).role;
+  if (requesterRole !== "admin") throw new Error("Accès refusé.");
+
+  const companyId = (session.user as any).companyId;
+
+  const { data: targetUser, error: fetchError } = await supabaseAdmin
+    .from("users")
+    .select("company_id")
+    .eq("id", userId)
+    .single();
+
+  if (fetchError || !targetUser) throw new Error("Utilisateur introuvable.");
+  if (targetUser.company_id !== companyId) throw new Error("Accès refusé.");
+
+  const tempPassword = crypto.randomBytes(9).toString("base64url");
+  const passwordHash = await bcrypt.hash(tempPassword, 10);
+
+  const { error } = await supabaseAdmin
+    .from("users")
+    .update({ password_hash: passwordHash })
+    .eq("id", userId);
+
+  if (error) throw new Error(error.message);
+
+  revalidatePath("/admin/users");
+  return { tempPassword };
+}

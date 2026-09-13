@@ -8,6 +8,11 @@ export async function createDocument(formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Non authentifié.");
 
+  const role = (session.user as any).role;
+  if (role !== "admin" && role !== "manager") {
+    throw new Error("Action réservée aux administrateurs et managers.");
+  }
+
   const companyId = (session.user as any).companyId;
   const userId = (session.user as any).id;
 
@@ -63,6 +68,11 @@ export async function publishDocument(documentId: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Non authentifié.");
 
+  const role = (session.user as any).role;
+  if (role !== "admin" && role !== "manager") {
+    throw new Error("Action réservée aux administrateurs et managers.");
+  }
+
   const companyId = (session.user as any).companyId;
 
   const { data: document, error: fetchError } = await supabaseAdmin
@@ -91,6 +101,11 @@ export async function deleteDocument(documentId: string) {
   const session = await auth();
   if (!session?.user) throw new Error("Non authentifié.");
 
+  const role = (session.user as any).role;
+  if (role !== "admin" && role !== "manager") {
+    throw new Error("Action réservée aux administrateurs et managers.");
+  }
+
   const companyId = (session.user as any).companyId;
 
   const { data: document, error: fetchError } = await supabaseAdmin
@@ -118,6 +133,11 @@ export async function deleteDocument(documentId: string) {
 export async function reuploadDocument(documentId: string, formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Non authentifié.");
+
+  const role = (session.user as any).role;
+  if (role !== "admin" && role !== "manager") {
+    throw new Error("Action réservée aux administrateurs et managers.");
+  }
 
   const companyId = (session.user as any).companyId;
   const file = formData.get("file") as File | null;

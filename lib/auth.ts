@@ -18,12 +18,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
 
         const { data: user, error } = await supabaseAdmin
           .from("users")
-          .select("id, email, password_hash, company_id, role")
+          .select("id, email, password_hash, company_id, role, department_id")
           .eq("email", email)
           .single();
 
         if (error || !user) return null;
-        if (!user.company_id) return null; // bloqué : utilisateur sans société
+        if (!user.company_id && user.role !== "group_admin") return null; // bloqué : utilisateur sans société (sauf group_admin)
 
         const valid = await bcrypt.compare(password, user.password_hash);
         if (!valid) return null;
@@ -33,6 +33,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           email: user.email,
           companyId: user.company_id,
           role: user.role,
+          departmentId: user.department_id,
         };
       },
     }),

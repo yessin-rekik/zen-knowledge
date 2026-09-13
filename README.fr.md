@@ -1,0 +1,224 @@
+# ZEN Knowledge
+
+Moteur de recherche conversationnel multi-sociétés (RAG) pour ZEN Group. Un collaborateur pose une question et reçoit une réponse concise, sourcée par des citations ouvrables, exclusivement à partir des documents auxquels il a accès — le filtrage des permissions est appliqué **avant** la recherche vectorielle, jamais en post-traitement.
+
+Projet développé en vibe coding avec Claude (Anthropic) sur environ 48h, dans le cadre du test technique Développeur Fullstack AI/Automation (Junior) — ZEN Group.
+
+---
+
+## Sommaire
+
+- [Stack technique](#stack-technique)
+- [Installation](#installation)
+- [Architecture](#architecture)
+- [Comptes de démonstration](#comptes-de-démonstration)
+- [Modèle de permissions](#modèle-de-permissions)
+- [Choix techniques assumés](#choix-techniques-assumés)
+- [Limites connues](#limites-connues)
+- [Tests](#tests)
+- [Workflows n8n](#workflows-n8n)
+- [Déploiement](#déploiement)
+
+---
+
+## Stack technique
+
+| Besoin | Outil |
+|---|---|
+| Frontend + API | Next.js 14 (App Router) + TypeScript |
+| UI | Tailwind CSS + shadcn/ui |
+| Base de données + vecteurs | Supabase (PostgreSQL + pgvector) |
+| Stockage fichiers | Supabase Storage |
+| Authentification | Auth.js (NextAuth v5), provider Credentials |
+| Embeddings | Hugging Face Inference API (`sentence-transformers/all-MiniLM-L6-v2`, 384 dimensions) |
+| Génération de réponse | Groq API (`openai/gpt-oss-20b`) |
+| Extraction PDF | `pdf-parse` |
+| Automatisation | n8n (workflows exportés en JSON) |
+| Tests | Vitest |
+| Déploiement | Vercel (app) + Supabase (données) |
+
+---
+
+## Installation
+
+### 1. Cloner le dépôt et installer les dépendances
+
+```bash
+git clone <url-du-dépôt>
+cd zen-knowledge
+npm install --legacy-peer-deps
+```
+
+> Le flag `--legacy-peer-deps` est nécessaire à cause d'un conflit de peer dependency entre Vitest 5 et `@types/node` — voir `.npmrc`, déjà configuré pour l'appliquer automatiquement.
+
+### 2. Créer un projet Supabase
+
+- Créez un nouveau projet sur [supabase.com](https://supabase.com)
+- Dans le **SQL Editor**, exécutez dans l'ordre :
+  1. `schema.sql` (structure complète : tables, RLS, fonction RPC `match_chunks`)
+  2. `seed.sql` (jeu de données de démonstration — optionnel mais recommandé)
+- Récupérez dans **Project Settings → API** : l'URL du projet, la clé `anon`, la clé `service_role`
+
+### 3. Créer les comptes externes nécessaires
+
+- **Groq** : créez une clé API sur [console.groq.com](https://console.groq.com)
+- **Hugging Face** : créez un token sur [huggingface.co/settings/tokens](https://huggingface.co/settings/tokens) avec la permission **"Make calls to Inference Providers"** (le scope "Read" seul ne suffit pas)
+
+### 4. Configurer les variables d'environnement
+
+```bash
+cp .env.example .env.local
+```
+
+Remplissez `.env.local` avec vos valeurs. Générez `AUTH_SECRET`, `CRON_SECRET` et `INTERNAL_WEBHOOK_SECRET` avec :
+
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+```
+
+### 5. Lancer le projet
+
+```bash
+npm run dev
+```
+
+L'application est disponible sur `http://localhost:3000`.
+
+---
+
+## Architecture
+
+```
+app/
+  (auth)/login/          — page de connexion
+  (app)/
+    chat/                — recherche conversationnelle + historique
+    library/              — CRUD documents, versioning, permissions avancées
+    tasks/                 — tâches de révision (obsolescence)
+    profile/               — gestion du compte personnel
+    admin/                 — dashboard (coûts, questions sans résultat, feedback négatif)
+    admin/users/           — gestion des collaborateurs
+    group/                 — gestion des sociétés/départements (group_admin)
+    group/audit/           — journal d'audit transverse (group_admin)
+  api/
+    ingest/                — pipeline d'extraction + chunking + embedding
+    chat/                  — endpoint principal RAG (recherche + génération)
+    documents/[id]/url/    — URLs signées pour ouvrir un document cité
+    documents/[id]/versions/ — historique des versions d'un document
+    cron/                  — job quotidien d'obsolescence (relance/dépublication)
+    auth/[...nextauth]/    — handler Auth.js
+
+lib/
+  auth.ts                 — configuration Auth.js (Credentials, JWT, callbacks)
+  db.ts                   — client Supabase admin (service_role, server-only)
+  rag.ts                  — recherche vectorielle + génération Groq
+  embeddings.ts           — appel Hugging Face Inference API
+  extraction.ts           — extraction texte PDF
+  chunking.ts             — découpage en chunks (~500 tokens, overlap 50)
+  context.ts              — résolution de la société "effective" (admin vs group_admin)
+  active-company.ts       — gestion du cookie de contexte société (group_admin)
+  audit.ts                — helper de journalisation d'audit
+
+workflows/                — exports JSON n8n (ingestion, obsolescence)
+tests/isolation.test.ts   — tests automatisés d'isolation des permissions
+schema.sql                — schéma DB complet consolidé
+seed.sql                  — jeu de données de démonstration
+```
+
+### Flux de recherche (W2)
+
+1. **Vérification identité** — session Auth.js (`middleware.ts` protège les routes)
+2. **Recherche filtrée** — la fonction RPC PostgreSQL `match_chunks` filtre par société, rôle, département et règles d'accès explicites **dans la clause `WHERE`, avant** le tri par similarité vectorielle
+3. **Génération sourcée** — Groq génère une réponse à partir des seuls chunks retournés ; si le modèle juge le contexte insuffisant, un message explicite est renvoyé et **aucune source n'est affichée** (pas de complément de mémoire du LLM)
+4. **Journal technique** — chaque requête est loggée dans `query_logs` (question, latence, modèle, tokens, documents récupérés), sans jamais stocker de secret
+
+### Flux d'ingestion (W1)
+
+Upload (Supabase Storage) → extraction texte (`pdf-parse`, détection des PDF scannés vides) → nettoyage + découpage en chunks → embedding (Hugging Face Inference API) → insertion `document_chunks` → publication manuelle (bouton admin), seul état où les chunks deviennent cherchables.
+
+### Flux d'obsolescence (W3)
+
+Un cron quotidien (`vercel.json`, appelable aussi via le workflow n8n `obsolescence.json`) vérifie les documents publiés dont la `date_revision` est dépassée : création d'une tâche pour le propriétaire, relance à J+7, dépublication à J+14 (les chunks sont désactivés — `is_active = false` — jamais supprimés, l'historique de chat reste intact).
+
+---
+
+## Comptes de démonstration
+
+Après exécution de `seed.sql` :
+
+| Email | Mot de passe | Rôle | Portée |
+|---|---|---|---|
+| `admin@acme.com` | `admin123` | admin | Acme Corp |
+| `manager@acme.com` | `manager123` | manager | Acme Corp, département RH |
+| `employee@acme.com` | `employee123` | employee | Acme Corp, département RH |
+| `groupadmin@zen.com` | `admin123` | group_admin | Transverse à tout le Groupe |
+
+> Le compte `group_admin` doit d'abord sélectionner une société active sur `/group` avant d'accéder au chat, à la bibliothèque ou au dashboard d'une société donnée.
+
+---
+
+## Modèle de permissions
+
+Le filtrage s'applique en cascade, entièrement dans la fonction SQL `match_chunks` :
+
+1. **Base d'éligibilité** : le document est visible si (a) il est marqué `is_group_wide`, ou (b) l'utilisateur est de la même société **et** son rôle figure dans `visibility_roles` **et** (le document n'a pas de département, ou l'utilisateur n'a pas de département, ou ils correspondent)
+2. **Règles d'exception** (`document_access_rules`) : une règle `deny` explicite exclut toujours un document, même s'il serait normalement visible ; une règle `allow` explicite l'inclut toujours, même hors périmètre habituel — permet par exemple de partager un document avec une société tierce ou un utilisateur précis sans changer sa visibilité générale
+
+Rôles disponibles : `employee`, `manager`, `admin` (scopés à une société), `group_admin` (transverse, sans société fixe, doit explicitement sélectionner un contexte de société — chaque bascule est tracée dans `audit_log`).
+
+---
+
+## Choix techniques assumés
+
+- **RLS + Auth.js** : les policies RLS de Supabase (basées sur `auth.uid()`) restent une couche défensive symbolique, car ce projet utilise Auth.js et non Supabase Auth — `auth.uid()` n'est jamais peuplé en pratique. L'enforcement réel des permissions a lieu dans `match_chunks`, appelée via le client `service_role` avec des paramètres (`company_id`, `role`, `department_id`, `user_id`) vérifiés côté serveur à partir de la session Auth.js — jamais fournis tels quels par le client.
+- **n8n non hébergé en continu** : les workflows (`ingestion.json`, `obsolescence.json`) ont été développés et testés en local (Docker), puis exportés. Le chemin critique de latence (chat) reste dans Next.js pour la rapidité perçue ; n8n sert aux workflows asynchrones/back-office, cohérent avec l'esprit du test.
+- **Embeddings via API externe, pas en local** : `@huggingface/transformers` (exécution locale du modèle) a été abandonné au profit de l'API Hugging Face Inference, car les runtimes ONNX avec bindings natifs sont incompatibles avec l'environnement serverless de Vercel (bibliothèque `.so` manquante). Le modèle (`all-MiniLM-L6-v2`) reste identique, seule l'exécution change.
+- **Génération synchrone dans l'app** plutôt que via un webhook n8n, pour la latence perçue par l'utilisateur — choix documenté dès la conception.
+- **Départements comme table dédiée**, migrés depuis l'ancien champ texte libre `service` — rétrocompatible (`service` conservé en lecture).
+
+---
+
+## Limites connues
+
+- **Pas d'OCR** pour les PDF scannés vides — le cas est détecté (`extraction_status = 'extraction_failed'`) mais aucun fallback OCR n'est implémenté ; documenté comme limitation assumée.
+- **Pas de vrai envoi d'email** pour les relances d'obsolescence — les tâches sont créées et visibles sur `/tasks`, mais aucune notification externe n'est envoyée.
+- **Estimation de coût indicative** — le calcul dans le dashboard admin utilise un tarif Groq fixe codé en dur, pas une facturation réelle en temps réel.
+- **Tokenisation approximative** pour le chunking (~4 caractères ≈ 1 token), suffisant pour la démo mais pas un tokenizer précis.
+- **`group_admin` et gestion des sociétés/départements** : pas d'édition ni de suppression de société/département une fois créés (uniquement création et listing) — suffisant pour démontrer l'architecture, pas encore un CRUD complet.
+- **Pas de scroll infini/pagination** sur les listes (documents, dashboard, audit log) — limité à des volumes de démonstration raisonnables.
+
+---
+
+## Tests
+
+```bash
+npm run test
+```
+
+`tests/isolation.test.ts` couvre, avec des données créées et nettoyées automatiquement à chaque exécution :
+
+- Isolation stricte par société (un utilisateur de la société A ne récupère jamais un chunk de la société B, même avec un score de similarité identique)
+- Isolation par rôle (`visibility_roles`)
+- Isolation par département
+- Règles d'accès explicites : `deny` prioritaire, `allow` donnant accès hors périmètre normal, documents `is_group_wide` visibles depuis n'importe quelle société
+
+---
+
+## Workflows n8n
+
+Deux workflows exportés dans `workflows/`, développés et testés en local (Docker), non hébergés en continu — voir [Choix techniques assumés](#choix-techniques-assumés) :
+
+- **`ingestion.json`** — reçoit un `documentId` via webhook, déclenche `/api/ingest` (authentifié par un secret partagé, `INTERNAL_WEBHOOK_SECRET`), notifie le résultat
+- **`obsolescence.json`** — déclenché quotidiennement (Schedule Trigger), appelle `/api/cron` (authentifié par `CRON_SECRET`) pour créer les tâches de révision, relancer, dépublier
+
+Pour les réimporter : n8n → menu → Import from File.
+
+---
+
+## Déploiement
+
+Déployé sur Vercel avec Supabase comme backend de données. Points d'attention :
+
+- Toutes les variables de `.env.example` doivent être configurées dans Vercel (Project Settings → Environment Variables)
+- `NEXTAUTH_URL` doit être renseignée avec l'URL de production après le premier déploiement
+- Le cron d'obsolescence (`vercel.json`) est déclenché automatiquement par Vercel Cron (plan Hobby : une fois par jour maximum)

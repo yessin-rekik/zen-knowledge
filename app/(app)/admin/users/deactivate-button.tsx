@@ -2,12 +2,16 @@
 
 import { deactivateCollaborator } from "../users-actions";
 
-export function DeactivateUserButton({ userId, email }: { userId: string; email: string }) {
+export function DeactivateUserButton({
+  userId,
+  email,
+}: {
+  userId: string;
+  email: string;
+}) {
   return (
     <form
-      action={async () => {
-        await deactivateCollaborator(userId);
-      }}
+      action={async () => { await deactivateCollaborator(userId); }}
     >
       <button
         type="submit"

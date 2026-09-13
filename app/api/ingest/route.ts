@@ -18,6 +18,10 @@ export async function POST(req: NextRequest) {
     if (!session?.user) {
       return NextResponse.json({ error: "Non authentifié." }, { status: 401 });
     }
+    const role = (session.user as any).role;
+    if (role !== "admin" && role !== "manager") {
+      return NextResponse.json({ error: "Accès refusé." }, { status: 403 });
+    }
     companyId = (session.user as any).companyId;
   }
 
