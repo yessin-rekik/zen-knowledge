@@ -21,7 +21,7 @@ export default async function AppLayout({
   const activeCompanyId =
     user?.role === "group_admin" ? await getEffectiveCompanyId(user) : null;
   return (
-    <div className="flex flex-1 overflow-hidden bg-[#F7F5F0]">
+    <div className="fixed inset-0 flex overflow-hidden bg-[#F7F5F0]">
       {/* ── Sidebar principale ── */}
       <aside
         className="
@@ -100,7 +100,7 @@ export default async function AppLayout({
       </aside>
 
       {/* ── Zone de contenu principale ── */}
-      <main className="flex-1 overflow-hidden">{children}</main>
+      <main className="flex-1 overflow-hidden min-h-0">{children}</main>
     </div>
   );
 }
