@@ -16,7 +16,7 @@ export function CreateDepartmentForm({ companies }: { companies: { id: string; n
   };
 
   return (
-    <form action={handleSubmit} className="space-y-3 border border-[#D6D2CB] rounded-lg p-5">
+    <form action={handleSubmit} className="space-y-3 bg-white border border-[#D6D2CB] rounded-lg p-5">
       <h2>Ajouter un département</h2>
       <div className="flex gap-2 items-end">
         <div className="space-y-1.5">

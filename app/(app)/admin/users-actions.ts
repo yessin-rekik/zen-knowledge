@@ -5,17 +5,25 @@ import { supabaseAdmin } from "@/lib/db";
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
+import { getEffectiveCompanyId } from "@/lib/context";
 
 export async function inviteCollaborator(formData: FormData) {
   const session = await auth();
   if (!session?.user) throw new Error("Non authentifié.");
 
   const requesterRole = (session.user as any).role;
-  if (requesterRole !== "admin") {
+  if (requesterRole !== "admin" && requesterRole !== "group_admin") {
     throw new Error("Seul un admin peut inviter des collaborateurs.");
   }
 
-  const companyId = (session.user as any).companyId;
+  let companyId;
+
+  if (requesterRole === "group_admin") {
+    companyId = await getEffectiveCompanyId(session.user);
+  } else {
+    companyId = (session.user as any).companyId;
+  }
+
   const email = formData.get("email") as string;
   const role = formData.get("role") as string;
 
@@ -54,11 +62,17 @@ export async function deactivateCollaborator(userId: string) {
   if (!session?.user) throw new Error("Non authentifié.");
 
   const requesterRole = (session.user as any).role;
-  if (requesterRole !== "admin") {
+  if (requesterRole !== "admin" && requesterRole !== "group_admin") {
     throw new Error("Seul un admin peut désactiver un collaborateur.");
   }
 
-  const companyId = (session.user as any).companyId;
+  let companyId;
+
+  if (requesterRole === "group_admin") {
+    companyId = await getEffectiveCompanyId(session.user);
+  } else {
+    companyId = (session.user as any).companyId;
+  }
 
   const { data: targetUser, error: fetchError } = await supabaseAdmin
     .from("users")
@@ -79,9 +93,15 @@ export async function updateCollaboratorEmail(userId: string, newEmail: string) 
   if (!session?.user) throw new Error("Non authentifié.");
 
   const requesterRole = (session.user as any).role;
-  if (requesterRole !== "admin") throw new Error("Accès refusé.");
+  if (requesterRole !== "admin" && requesterRole !== "group_admin") throw new Error("Accès refusé.");
 
-  const companyId = (session.user as any).companyId;
+  let companyId;
+
+  if (requesterRole === "group_admin") {
+    companyId = await getEffectiveCompanyId(session.user);
+  } else {
+    companyId = (session.user as any).companyId;
+  }
 
   const { data: targetUser, error: fetchError } = await supabaseAdmin
     .from("users")
@@ -116,9 +136,15 @@ export async function resetCollaboratorPassword(userId: string) {
   if (!session?.user) throw new Error("Non authentifié.");
 
   const requesterRole = (session.user as any).role;
-  if (requesterRole !== "admin") throw new Error("Accès refusé.");
+  if (requesterRole !== "admin" && requesterRole !== "group_admin") throw new Error("Accès refusé.");
 
-  const companyId = (session.user as any).companyId;
+  let companyId;
+
+  if (requesterRole === "group_admin") {
+    companyId = await getEffectiveCompanyId(session.user);
+  } else {
+    companyId = (session.user as any).companyId;
+  }
 
   const { data: targetUser, error: fetchError } = await supabaseAdmin
     .from("users")

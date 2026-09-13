@@ -71,10 +71,9 @@ export default async function GroupPage() {
           </ul>
         </section>
 
-        <section className="rounded-lg border border-[#D6D2CB] bg-white p-6">
-          <h2 className="mb-4">Ajouter un département</h2>
+
           <CreateDepartmentForm companies={companies ?? []} />
-        </section>
+        
       </div>
     </div>
   );

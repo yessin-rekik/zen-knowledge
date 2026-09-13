@@ -47,14 +47,14 @@ const NAV_ITEMS: NavItem[] = [
     label: "Administration",
     icon: <LayoutDashboard size={16} strokeWidth={1.75} />,
     segment: "admin",
-    roles: ["admin"],
+    roles: ["admin", "group_admin"],
   },
   {
     href: "/admin/users",
     label: "Collaborateurs",
     icon: <Users size={16} strokeWidth={1.75} />,
     segment: "admin/users",
-    roles: ["admin"],
+    roles: ["admin", "group_admin"],
   },
   {
     href: "/group",
